@@ -1,4 +1,4 @@
-import{p as c}from"./_-B3UqnfVy.js";import{j as t,u as s}from"./index-OH96i1TA.js";import{S as a,t as l}from"./utils-DZMyeeWn.js";const u=()=>t.jsx(a,{defaultItems:l,height:600,collapsible:!0}),m=`import { SortableTree } from 'dnd-tree-sortable';
+import{p as c}from"./_-B3UqnfVy.js";import{j as t,u as s}from"./index-CvvxM_JZ.js";import{S as a,t as l}from"./utils-C8c3Vb-c.js";const u=()=>t.jsx(a,{defaultItems:l,height:600,collapsible:!0}),m=`import { SortableTree } from 'dnd-tree-sortable';
 
 import { tree } from '../utils';
 
