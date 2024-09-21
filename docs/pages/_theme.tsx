@@ -2,7 +2,7 @@ import { createTheme, defaultSideNavs } from 'vite-pages-theme-doc';
 
 import Component404 from './404';
 
-export default createTheme({
+const theme = createTheme({
   logo: <div style={{ fontSize: '20px' }}>Dnd Tree Sortable</div>,
   topNavs: [
     {
@@ -38,3 +38,5 @@ export default createTheme({
     });
   },
 });
+
+export default theme;

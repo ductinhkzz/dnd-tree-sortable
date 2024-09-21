@@ -30,7 +30,7 @@
     "build": "tsc --p ./tsconfig.lib.json && vite build",
     "lint": "eslint .",
     "dev": "vite serve docs",
-    "build-docs": "rimraf docs/dist && vite build docs && serve -s docs/dist",
+    "build-docs": "rimraf docs/dist && vite build docs",
     "ssr-docs": "rimraf docs/dist && vite-pages ssr docs && serve docs/dist",
     "format": "prettier . --write",
     "prepare": "husky"
