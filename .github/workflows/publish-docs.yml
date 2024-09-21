@@ -4,7 +4,7 @@ name: Deploy Documentation
 on:
   push:
     branches:
-      - master  # Change this to your default branch (e.g., 'master')
+      - master # Change this to your default branch (e.g., 'master')
 
 jobs:
   build-deploy:
@@ -19,7 +19,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '20'  # Use your preferred Node.js version
+          node-version: '20' # Use your preferred Node.js version
 
       # Install dependencies
       - name: Install dependencies
@@ -27,11 +27,11 @@ jobs:
 
       # Build the documentation
       - name: Build docs
-        run: yarn build-docs  # Replace with your docs build command (e.g., vite-pages or vite build)
+        run: yarn build-docs # Replace with your docs build command (e.g., vite-pages or vite build)
 
       # Deploy to GitHub Pages
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.ACCESS_TOKEN }}
-          publish_dir: ./docs/dist  # Change to the directory where your docs are built
+          publish_dir: ./docs/dist # Change to the directory where your docs are built

@@ -11,6 +11,7 @@ export default defineConfig(() => {
         pagesDir: path.join(__dirname, 'pages'),
       }),
     ],
+    base: process.env.NODE_ENV === 'production' ? 'dnd-tree-sortable' : 'dnd-tree-sortable/docs/dist',
     resolve: {
       alias: {
         'dnd-tree-sortable': path.join(__dirname, '../lib'),
