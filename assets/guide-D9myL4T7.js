@@ -1,4 +1,4 @@
-import{p as i}from"./guide_-BJb2ZrK9.js";import{u as r,j as e}from"./index-D28AmRkY.js";function t(d){const n={a:"a",code:"code",h1:"h1",h2:"h2",pre:"pre",table:"table",tbody:"tbody",td:"td",th:"th",thead:"thead",tr:"tr",...r(),...d.components};return e.jsxs(e.Fragment,{children:[e.jsx(n.h1,{id:"api",children:"API"}),`
+import{p as i}from"./guide_-BJb2ZrK9.js";import{u as r,j as e}from"./index-DzyhgKUr.js";function t(d){const n={a:"a",code:"code",h1:"h1",h2:"h2",pre:"pre",table:"table",tbody:"tbody",td:"td",th:"th",thead:"thead",tr:"tr",...r(),...d.components};return e.jsxs(e.Fragment,{children:[e.jsx(n.h1,{id:"api",children:"API"}),`
 `,e.jsx(n.h2,{id:"sortabletreeprops",children:e.jsx(n.code,{children:"SortableTreeProps"})}),`
 `,e.jsx(n.pre,{children:e.jsx(n.code,{className:"language-ts",children:`interface SortableTreeProps<T extends object> {
   collapsible?: boolean;

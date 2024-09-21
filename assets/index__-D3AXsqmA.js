@@ -1,4 +1,4 @@
-import{p as l}from"./_-FU1-d8Ot.js";import{u as r,j as e}from"./index-D28AmRkY.js";function s(t){const n={a:"a",code:"code",h1:"h1",h2:"h2",li:"li",p:"p",pre:"pre",strong:"strong",ul:"ul",...r(),...t.components};return e.jsxs(e.Fragment,{children:[e.jsx(n.h1,{id:"react-dnd-tree-sortable",children:"React Dnd Tree Sortable"}),`
+import{p as l}from"./_-FU1-d8Ot.js";import{u as r,j as e}from"./index-DzyhgKUr.js";function s(t){const n={a:"a",code:"code",h1:"h1",h2:"h2",li:"li",p:"p",pre:"pre",strong:"strong",ul:"ul",...r(),...t.components};return e.jsxs(e.Fragment,{children:[e.jsx(n.h1,{id:"react-dnd-tree-sortable",children:"React Dnd Tree Sortable"}),`
 `,e.jsx(n.h2,{id:"introduce",children:"Introduce"}),`
 `,e.jsxs(n.p,{children:[e.jsx(n.a,{href:"https://vitejs.github.io/vite-plugin-react-pages",children:"dnd-tree-sortable"})," is a React component. It is very suitable for:"]}),`
 `,e.jsxs(n.ul,{children:[`
