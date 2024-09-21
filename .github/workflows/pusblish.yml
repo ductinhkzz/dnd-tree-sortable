@@ -34,9 +34,3 @@ jobs:
         run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      # Step 6: Push tags to npm (optional if versioning is required)
-      - name: Push new tag to npm
-        run: git push --tags
-        env:
-          GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}

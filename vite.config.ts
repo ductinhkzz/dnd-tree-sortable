@@ -7,7 +7,7 @@ export default defineConfig(() => {
   return {
     plugins: [
       react({
-        jsxRuntime: 'classic',
+        jsxRuntime: 'automatic',
       }),
       dts({ rollupTypes: true, outDir: 'dist/types', include: ['lib'] }),
     ],
