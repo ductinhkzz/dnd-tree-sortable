@@ -1,0 +1,40 @@
+name: Publish to npm
+
+on:
+  release:
+    types: [published] # Trigger the workflow when a release is published
+  workflow_dispatch: # Also allow manual triggering
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout the repository code
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Step 2: Set up Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16' # Adjust to the version you're using
+          registry-url: 'https://registry.npmjs.org/'
+
+      # Step 3: Install dependencies
+      - name: Install dependencies
+        run: npm install
+
+      # Step 4: Build the package (optional, depending on your library)
+      - name: Build the package
+        run: npm run build
+
+      # Step 5: Publish to npm
+      - name: Publish package
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      # Step 6: Push tags to npm (optional if versioning is required)
+      - name: Push new tag to npm
+        run: git push --tags
