@@ -1,0 +1,70 @@
+---
+title: API
+order: 4
+---
+
+# API
+
+## `SortableTreeProps`
+
+```ts
+interface SortableTreeProps<T extends object> {
+  collapsible?: boolean;
+  defaultItems?: TreeItem<T>[];
+  indentationWidth?: number;
+  indicator?: boolean;
+  removable?: boolean;
+  components?: SortableTreeItemProps<TreeItem<T>>['components'];
+  height?: string | number;
+  renderItemContent?: SortableTreeItemProps<TreeItem<T>>['renderItem'];
+  onChange?: (currentItem: FlattenedItem<T>, changeItem: FlattenedItem<T>) => void;
+  onRemove?: (id: UniqueIdentifier) => void;
+}
+```
+
+## `TreeItem`
+
+```ts
+type TreeItem<T extends object = {}> = T & {
+  id: UniqueIdentifier;
+  collapsed?: boolean;
+  children: TreeItem<T>[];
+};
+```
+
+## `FlattenedItem`
+
+```ts
+type FlattenedItem<T extends object = {}> = TreeItem<T> & {
+  parentId: UniqueIdentifier | null;
+  depth: number;
+  index: number;
+};
+```
+
+## `RenderComponentType`
+
+```ts
+type RenderComponentType<T extends TreeItem> = {
+  Handle?: (props: ActionProps) => JSX.Element;
+  Collapse?: (props: ActionProps) => JSX.Element;
+  Remove?: (props: ActionProps) => JSX.Element;
+  ItemContent?: (props: T) => JSX.Element;
+  Badge?: (props: BadgeProps) => JSX.Element;
+};
+```
+
+## `SortableTree`
+
+| Property          | Description               | Type                                                                     | Default     |
+| ----------------- | ------------------------- | ------------------------------------------------------------------------ | ----------- |
+| collapsible       | Enable collapsible mode.  | `boolean`                                                                | `false`     |
+| indicator         | Enable indicator mode.    | `boolean`                                                                | `false`     |
+| removable         | Enable removable mode.    | `boolean`                                                                | `false`     |
+| indentationWidth  | Set indentationWidth.     | `number`                                                                 | `50`        |
+| height            | Set view height.          | `string` or `number`                                                     | `undefined` |
+| defaultItems      | Item data                 | `TreeItem<T>[]`                                                          | []          |
+| components        | Custom components of item | [RenderComponentType](#rendercomponenttype)                              | `undefined` |
+| renderItemContent | Custom render content     | `(props: Omit<SortableTreeItemProps<TreeItem<T>>, "id">) => JSX.Element` | `undefined` |
+| onChange          | Handle change item        | `(currentItem: FlattenedItem<T>, changeItem: FlattenedItem<T>) => void`  | `undefined` |
+| onRemove          | Handle remove item        | `(id: UniqueIdentifier) => void`                                         | `undefined` |
