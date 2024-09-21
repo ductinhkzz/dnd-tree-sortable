@@ -1,7 +1,7 @@
 {
   "name": "dnd-tree-sortable",
   "private": false,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "license": "MIT",
   "type": "module",
   "main": "dist/dnd-tree-sortable.umd.js",
