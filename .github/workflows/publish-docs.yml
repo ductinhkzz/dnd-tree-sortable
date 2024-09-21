@@ -1,0 +1,37 @@
+name: Deploy Documentation
+
+# Run this workflow when pushing to the default branch
+on:
+  push:
+    branches:
+      - master  # Change this to your default branch (e.g., 'master')
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout the repository code
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      # Set up Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'  # Use your preferred Node.js version
+
+      # Install dependencies
+      - name: Install dependencies
+        run: yarn install
+
+      # Build the documentation
+      - name: Build docs
+        run: yarn build-docs  # Replace with your docs build command (e.g., vite-pages or vite build)
+
+      # Deploy to GitHub Pages
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs/dist  # Change to the directory where your docs are built
