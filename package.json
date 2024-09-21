@@ -11,6 +11,11 @@
   "files": [
     "dist"
   ],
+  "homepage": "https://ductinhkzz.github.io/dnd-tree-sortable/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ductinhkzz/dnd-tree-sortable"
+  },
   "keywords": [
     "react",
     "react-tree",
