@@ -12,7 +12,8 @@ const VirtuosoScrollbars = forwardRef(function VirtuosoScrollbars(
     <CustomScrollbars
       style={style}
       ref={ref}
-      renderView={(viewProps) => <div {...viewProps} {...props} tabIndex={-1} />}>
+      renderView={(viewProps) => <div {...viewProps} {...props} tabIndex={-1} />}
+    >
       {children}
     </CustomScrollbars>
   );

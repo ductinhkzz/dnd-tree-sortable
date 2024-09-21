@@ -72,7 +72,8 @@ const TreeItemComponent = <T extends TreeItemType>(props: TreeItemProps<T>, ref:
           '--spacing': `${indentationWidth * depth}px`,
         } as CSSProperties
       }
-      {...rest}>
+      {...rest}
+    >
       <div className={styles.TreeItem} ref={ref} style={style}>
         <Handle {...handleProps} />
         {onCollapse && (

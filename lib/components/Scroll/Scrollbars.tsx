@@ -47,7 +47,8 @@ const CustomScrollbars = forwardRef<HTMLElement, CustomScrollbarsProps>(function
         overflowX ? undefined : (props) => <div {...props} className='track-horizontal' style={{ display: 'none' }} />
       }
       renderThumbVertical={({ style, ...props }) => <div {...props} style={{ ...style }} className={styles.Scroll} />}
-      ref={refSetter}>
+      ref={refSetter}
+    >
       {children}
     </Scrollbars>
   );
