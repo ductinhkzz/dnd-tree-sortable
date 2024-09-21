@@ -1,0 +1,1 @@
+import{d as t,R as r,S as c,e as s}from"./index-K8_tGMbn.js";var l={id:"vite-pages-theme-doc-antd-ssr",prepare(a){const e=t();return{app:r.createElement(c,{cache:e},a),extractStyle:()=>s(e)}}};export{l as default};
