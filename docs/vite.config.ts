@@ -10,6 +10,7 @@ export default defineConfig({
       pagesDir: path.join(__dirname, 'pages'),
     }),
   ],
+  base: 'dnd-tree-sortable/docs/dist',
   resolve: {
     alias: {
       'dnd-tree-sortable': path.join(__dirname, '../lib'),
