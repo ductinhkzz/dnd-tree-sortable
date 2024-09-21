@@ -1,4 +1,4 @@
-import React, { forwardRef, HTMLAttributes, memo, ForwardedRef } from 'react';
+import { forwardRef, HTMLAttributes, memo, ForwardedRef, CSSProperties, JSX } from 'react';
 import classNames from 'clsx';
 
 import styles from './TreeItem.module.css';
@@ -70,10 +70,9 @@ const TreeItemComponent = <T extends TreeItemType>(props: TreeItemProps<T>, ref:
       style={
         {
           '--spacing': `${indentationWidth * depth}px`,
-        } as React.CSSProperties
+        } as CSSProperties
       }
-      {...rest}
-    >
+      {...rest}>
       <div className={styles.TreeItem} ref={ref} style={style}>
         <Handle {...handleProps} />
         {onCollapse && (

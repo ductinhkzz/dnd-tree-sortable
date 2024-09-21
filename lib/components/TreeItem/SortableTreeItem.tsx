@@ -1,4 +1,4 @@
-import { CSSProperties, memo } from 'react';
+import { CSSProperties, memo, JSX } from 'react';
 import type { UniqueIdentifier } from '@dnd-kit/core';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';

@@ -1,3 +1,4 @@
+import { CSSProperties } from 'react';
 import { SortableTree, SortableTreeProps } from 'dnd-tree-sortable';
 
 import { tree } from '../utils';
@@ -28,7 +29,7 @@ const ItemContent: SortableTreeProps<{}>['renderItemContent'] = ({
         {
           '--spacing': `${indentationWidth * depth}px`,
           paddingLeft: 'var(--spacing)',
-        } as React.CSSProperties
+        } as CSSProperties
       }
       {...rest}
     >

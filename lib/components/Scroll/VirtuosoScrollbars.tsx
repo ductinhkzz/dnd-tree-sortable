@@ -1,5 +1,4 @@
-import type { ComponentProps, Ref } from 'react';
-import { forwardRef } from 'react';
+import { ComponentProps, Ref, forwardRef } from 'react';
 
 import CustomScrollbars from './Scrollbars';
 
@@ -13,8 +12,7 @@ const VirtuosoScrollbars = forwardRef(function VirtuosoScrollbars(
     <CustomScrollbars
       style={style}
       ref={ref}
-      renderView={(viewProps) => <div {...viewProps} {...props} tabIndex={-1} />}
-    >
+      renderView={(viewProps) => <div {...viewProps} {...props} tabIndex={-1} />}>
       {children}
     </CustomScrollbars>
   );

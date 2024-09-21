@@ -1,9 +1,9 @@
-import React, { CSSProperties } from 'react';
+import { CSSProperties, HTMLAttributes } from 'react';
 import classNames from 'clsx';
 
 import styles from './Action.module.scss';
 
-export interface ActionProps extends React.HTMLAttributes<HTMLButtonElement> {
+export interface ActionProps extends HTMLAttributes<HTMLButtonElement> {
   active?: {
     fill: string;
     background: string;

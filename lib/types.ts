@@ -1,4 +1,4 @@
-import type { MutableRefObject } from 'react';
+import { MutableRefObject, JSX } from 'react';
 import type { UniqueIdentifier } from '@dnd-kit/core';
 import { ActionProps, BadgeProps } from './components';
 
