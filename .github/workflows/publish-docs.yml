@@ -4,7 +4,7 @@ name: Deploy Documentation
 on:
   push:
     branches:
-      - master # Change this to your default branch (e.g., 'master')
+      - master
 
 jobs:
   build-deploy:
@@ -15,23 +15,26 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - uses: pnpm/action-setup@v6
+
       # Set up Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '24' # Use your preferred Node.js version
+          node-version: '24'
+          cache: pnpm
 
       # Install dependencies
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       # Build the documentation
       - name: Build docs
-        run: npm run build-docs # Replace with your docs build command (e.g., vite-pages or vite build)
+        run: pnpm run build-docs
 
       # Deploy to GitHub Pages
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.ACCESS_TOKEN }}
-          publish_dir: ./docs/dist # Change to the directory where your docs are built
+          publish_dir: ./docs/dist

@@ -80,10 +80,10 @@ const TreeItemComponent = <T extends TreeItemType>(props: TreeItemProps<T>, ref:
         ref={ref}
         style={style}
         className={cn(
-          'relative flex min-h-11 min-w-0 items-center gap-1 rounded-md border border-transparent px-1 py-1 text-sm text-foreground transition-colors motion-reduce:transition-none',
+          'relative flex min-h-11 min-w-0 items-center gap-1 rounded-md border border-border px-1 py-1 text-sm text-foreground transition-colors motion-reduce:transition-none',
           !ghost && !clone && 'hover:bg-accent/60 focus-within:bg-accent/60',
           ghost && 'opacity-35',
-          clone && 'border-border bg-background shadow-lg',
+          clone && 'bg-background shadow-lg',
         )}
       >
         <Handle

@@ -31,7 +31,7 @@ const initialItems: TreeItem[] = [
 ];
 
 const registryUrl = new URL(`${import.meta.env.BASE_URL}r/sortable-tree.json`, window.location.origin).href;
-const command = `npx shadcn@latest add ${registryUrl}`;
+const command = `pnpm dlx shadcn@latest add ${registryUrl}`;
 const usage = `"use client";
 
 import { useState } from "react";

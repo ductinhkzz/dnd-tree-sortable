@@ -14,7 +14,7 @@ A shadcn registry for a React drag-and-drop tree using ScrollArea and Tailwind C
 Use a React 18.3 or React 19 project initialized with [shadcn/ui](https://ui.shadcn.com/docs/installation), with Tailwind CSS 4 and shadcn theme tokens configured. Once this rework is deployed to GitHub Pages:
 
 ```sh
-npx shadcn@latest add https://ductinhkzz.github.io/dnd-tree-sortable/r/sortable-tree.json
+pnpm dlx shadcn@latest add https://ductinhkzz.github.io/dnd-tree-sortable/r/sortable-tree.json
 ```
 
 The CLI installs dependencies, adds shadcn `scroll-area`, `button`, and `badge` as registry dependencies, and copies the tree into your configured components directory under `dnd-tree-sortable`. The manifest uses `@components/` targets, so both project-root and `src/components` layouts work. Imports use your configured aliases; the example below assumes `@/components`. Existing shadcn primitives are reused; review any CLI overwrite prompt if you have customized those files.
@@ -29,7 +29,7 @@ You can also configure a namespace in your consumer project's `components.json`:
 }
 ```
 
-Then run `npx shadcn@latest add @dnd-tree/sortable-tree`. This is a user-configured namespace; it is not registered in shadcn's public registry index.
+Then run `pnpm dlx shadcn@latest add @dnd-tree/sortable-tree`. This is a user-configured namespace; it is not registered in shadcn's public registry index.
 
 ## Usage
 
@@ -89,23 +89,24 @@ Virtuoso and CSS Modules have been removed. This version renders all expanded no
 
 ## Develop and build
 
-Use Node.js 24 LTS (see `.nvmrc`) and npm. Node.js 22.12+ is also supported. From the repository root:
+Use Node.js 24 LTS (see `.nvmrc`) and [pnpm](https://pnpm.io/installation) 12.10.1 (pinned in `package.json`). Node.js 22.13+ is also supported. From the repository root:
 
 ```sh
-npm ci
-npm run registry:build
-npm run dev
+pnpm install --frozen-lockfile
+pnpm run dev
 ```
+
+`pnpm dev`, `pnpm test`, and `pnpm test:watch` rebuild the registry before starting. The pnpm lockfile replaces `package-lock.json`; CI installs with `--frozen-lockfile`.
 
 Visit `http://localhost:5173/dnd-tree-sortable/`. The live homepage includes preview/code tabs, theme switching, collapse/removal controls, and a copyable install command that uses the current origin.
 
 ```sh
-npm run format:check
-npm run lint
-npm run typecheck
-npm run build-docs
-npm test
-npm run build
+pnpm run format:check
+pnpm run lint
+pnpm run typecheck
+pnpm run build-docs
+pnpm test
+pnpm run build
 ```
 
 `registry.json` is the catalog and source manifest. It reads the canonical implementation in `lib/`; there is no second copy to maintain. Add every new source file to its `files` array with an `@components/dnd-tree-sortable/` target. Registry coverage tests catch omitted files. The local shadcn primitive files in `lib/components/ui` and npm-only `package.ts`, `styles.css`, and `theme.css` are excluded from the registry; `registryDependencies` installs the primitives in consumer projects.
@@ -115,7 +116,7 @@ npm run build
 Test from a disposable, initialized consumer project:
 
 ```sh
-npx shadcn@latest add http://localhost:5173/dnd-tree-sortable/r/sortable-tree.json
+pnpm dlx shadcn@latest add http://localhost:5173/dnd-tree-sortable/r/sortable-tree.json
 ```
 
 CI checks formatting, lint, file naming, types, the latest commit message, website/registry build, Vitest tests, the library build, and production dependency advisories. The existing GitHub Pages workflow deploys `docs/dist` after merging to `master`, using the repository's existing `ACCESS_TOKEN` secret. The registry is available publicly only after that deployment succeeds.
@@ -138,10 +139,10 @@ Built on the [dnd-kit sortable tree example](https://github.com/clauderic/dnd-ki
 ## Tooling and naming
 
 - **Oxlint** checks TypeScript, React hooks, accessibility, and Vitest code. Vite 8 uses the Oxc transform pipeline.
-- **Oxfmt** replaces Prettier. Run `npm run format` to write changes, or `npm run format:check` to verify them.
-- **Vitest** replaces the Node/tsx test runner. `npm test` rebuilds the registry and runs utility, registry, SSR, and React interaction tests; `npm run test:watch` watches tests.
+- **Oxfmt** replaces Prettier. Run `pnpm run format` to write changes, or `pnpm run format:check` to verify them.
+- **Vitest** replaces the Node/tsx test runner. `pnpm test` rebuilds the registry and runs utility, registry, SSR, and React interaction tests; `pnpm run test:watch` watches tests.
 - **commitlint** enforces Conventional Commits through Husky's `commit-msg` hook. Use messages such as `feat: add custom tree rows` or `fix: preserve numeric item ids`. CI checks the newest commit; existing repository history is not rewritten.
-- The pre-commit hook checks formatting, lint, and types. `npm run check` runs all project checks.
+- The pre-commit hook checks formatting, lint, and types. `pnpm run check` runs all project checks.
 - File and folder names use **kebab-case**, enforced by `scripts/check-file-names.mjs`. Standard dotfiles/config extensions and GitHub's conventional `README.md` name are allowed. Component/export names remain PascalCase.
 
 ## Dependency review — October 10, 2026
@@ -178,4 +179,4 @@ Custom `components.Handle` implementations receive `elementRef` in `ActionProps`
 - Collapse/removal controls are disabled during a drag; keyboard Escape cancels without reporting data changes.
 - Tests cover tree invariants across reorder/nesting combinations, real ScrollArea and sensor interactions, numeric IDs, custom payloads/handles, controlled updates, cancellation, empty states, and SSR.
 
-`npm audit --omit=dev` reports **zero production vulnerabilities**. The full audit reports **seven high-severity development-only entries** associated with shadcn's transitive `braces` → `micromatch` → `fast-glob` dependency chain (including ts-morph and @shadcn/registry). These are package-level audit entries, not seven independently validated application vulnerabilities. The installed latest shadcn version still carries them; no forced downgrade or unverified override was applied. Track [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm) and update the CLI when a safe upstream fix is available.
+`pnpm audit --prod` reports **zero production vulnerabilities**. The full pnpm audit reports **one high-severity development-only advisory** for `braces`, reached through three shadcn dependency paths (`fast-glob`, ts-morph, and @shadcn/registry). This is the same advisory previously reported as seven package-level entries by npm. The installed latest shadcn version still carries them; no forced downgrade or unverified override was applied. Track [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm) and update the CLI when a safe upstream fix is available.

@@ -14,23 +14,26 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - uses: pnpm/action-setup@v6
+
       # Step 2: Set up Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '24' # Adjust to the version you're using
+          node-version: '24'
+          cache: pnpm
           registry-url: 'https://registry.npmjs.org/'
 
       # Step 3: Install dependencies
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       # Step 4: Build the package (optional, depending on your library)
       - name: Build the package
-        run: npm run build
+        run: pnpm run build
 
       # Step 5: Publish to npm
       - name: Publish package
-        run: npm publish
+        run: pnpm publish --no-git-checks
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

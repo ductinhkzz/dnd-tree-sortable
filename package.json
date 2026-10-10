@@ -46,23 +46,20 @@
   "scripts": {
     "build": "node scripts/clean.mjs && tsc -p tsconfig.build.json && vite build",
     "lint": "oxlint --deny-warnings && node scripts/check-file-names.mjs",
-    "dev": "vite serve docs",
-    "build-docs": "npm run registry:build && tsc -p docs/tsconfig.app.json && vite build docs",
-    "ssr-docs": "npm run build-docs && vite preview docs",
+    "dev": "pnpm run registry:build && vite serve docs",
+    "build-docs": "pnpm run registry:build && tsc -p docs/tsconfig.app.json && vite build docs",
+    "ssr-docs": "pnpm run build-docs && vite preview docs",
     "format": "oxfmt --write .",
     "prepare": "husky",
     "registry:build": "shadcn build --output docs/public/r",
     "typecheck": "tsc -p tsconfig.json && tsc -p docs/tsconfig.app.json",
-    "test": "vitest run",
-    "predev": "npm run registry:build",
+    "test": "pnpm run registry:build && vitest run",
     "lint:fix": "oxlint --fix",
     "format:check": "oxfmt --check .",
-    "test:watch": "vitest",
+    "test:watch": "pnpm run registry:build && vitest",
     "commitlint": "commitlint",
-    "check": "npm run format:check && npm run lint && npm run typecheck && npm run build-docs && npm test && npm run build",
-    "pretest": "npm run registry:build",
-    "pretest:watch": "npm run registry:build",
-    "audit:production": "npm audit --omit=dev --audit-level=high"
+    "check": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run build-docs && pnpm test && pnpm run build",
+    "audit:production": "pnpm audit --prod --audit-level high"
   },
   "dependencies": {
     "@dnd-kit/abstract": "^0.5.0",
@@ -102,6 +99,7 @@
     "react-dom": "^18.3.1 || ^19.0.0"
   },
   "engines": {
-    "node": "^22.12.0 || ^24.0.0 || >=26.0.0"
-  }
+    "node": "^22.13.0 || ^24.0.0 || >=26.0.0"
+  },
+  "packageManager": "pnpm@12.10.1"
 }

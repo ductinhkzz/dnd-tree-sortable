@@ -11,16 +11,18 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: pnpm/action-setup@v6
+
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-          cache: npm
-      - run: npm ci
-      - run: npm run format:check
-      - run: npm run lint
-      - run: npm run typecheck
-      - run: npm run commitlint -- --last
-      - run: npm run build-docs
-      - run: npm test
-      - run: npm run build
-      - run: npm run audit:production
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run format:check
+      - run: pnpm run lint
+      - run: pnpm run typecheck
+      - run: pnpm run commitlint --last
+      - run: pnpm run build-docs
+      - run: pnpm test
+      - run: pnpm run build
+      - run: pnpm run audit:production
