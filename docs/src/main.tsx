@@ -87,7 +87,7 @@ export function App() {
   return (
     <div className='app' data-theme={dark ? 'dark' : 'light'}>
       <header>
-        <a className='brand' href='#'>
+        <a className='brand' href={import.meta.env.BASE_URL}>
           <span className='brand-mark'>↳</span> sortable tree <span className='badge'>registry</span>
         </a>
         <nav aria-label='Main navigation'>

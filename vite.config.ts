@@ -1,48 +1,23 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import { resolve } from 'path';
-import dts from 'vite-plugin-dts';
-import { visualizer } from 'rollup-plugin-visualizer';
-import { globSync } from 'glob';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-// https://vitejs.dev/config/
-export default defineConfig(() => {
-  return {
-    plugins: [
-      react({ jsxRuntime: 'automatic' }),
-      dts({ rollupTypes: true, outDir: 'dist/types', include: ['lib'] }),
-      visualizer({
-        filename: './dist/stats.html', // Generates a visual report
-      }),
-    ],
-    build: {
-      lib: {
-        name: 'dnd-tree-sortable',
-        entry: resolve(__dirname, 'lib/index.ts'),
-        fileName: (format) => `dnd-tree-sortable.${format}.js`,
-        formats: ['es'],
-      },
-      rollupOptions: {
-        external: ['react', 'react-dom', 'react/jsx-runtime'],
-        input: Object.fromEntries(
-          globSync('lib/**/*{.ts,.tsx}').map((file) => {
-            return [
-              path.relative('lib', file.slice(0, file.length - path.extname(file).length)),
-              fileURLToPath(new URL(file, import.meta.url)),
-            ];
-          }),
-        ),
-        output: {
-          entryFileNames: '[name].js',
-          assetFileNames: 'assets/[name][extname]',
-          globals: {
-            react: 'React',
-            'react-dom': 'React-dom',
-            'react/jsx-runtime': 'react/jsx-runtime',
-          },
-        },
-      },
+import { fileURLToPath, URL } from 'node:url';
+import pkg from './package.json' with { type: 'json' };
+
+const externalPackages = [...Object.keys(pkg.dependencies), ...Object.keys(pkg.peerDependencies)];
+
+export default defineConfig({
+  plugins: [react()],
+  build: {
+    emptyOutDir: false,
+    lib: {
+      entry: fileURLToPath(new URL('./lib/index.ts', import.meta.url)),
+      formats: ['es'],
+      fileName: () => 'index.js',
+      cssFileName: 'style',
     },
-  };
+    rolldownOptions: {
+      external: (id) => externalPackages.some((name) => id === name || id.startsWith(`${name}/`)),
+      output: { assetFileNames: 'assets/[name][extname]', banner: '"use client";' },
+    },
+  },
 });

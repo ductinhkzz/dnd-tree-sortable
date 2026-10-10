@@ -1,4 +1,4 @@
-import { MutableRefObject, JSX } from 'react';
+import { JSX } from 'react';
 import type { UniqueIdentifier } from '@dnd-kit/core';
 import { ActionProps, BadgeProps } from './components';
 
@@ -21,10 +21,9 @@ export type FlattenedItem<T extends object = {}> = TreeItem<T> & {
   index: number;
 };
 
-export type SensorContext<T extends FlattenedItem> = MutableRefObject<{
-  items: T[];
-  offset: number;
-}>;
+export type SensorContext<T extends FlattenedItem> = {
+  current: { items: T[]; offset: number };
+};
 
 export type NonNullablePick<T, K extends keyof T> = {
   [P in K]: NonNullable<T[P]>;

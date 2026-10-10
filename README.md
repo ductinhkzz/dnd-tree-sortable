@@ -11,7 +11,7 @@ A shadcn-compatible registry for a virtualized React drag-and-drop tree. Install
 
 ## Install from the registry
 
-Use a React 18 project initialized with [shadcn/ui](https://ui.shadcn.com/docs/installation), with CSS Modules support (Next.js and Vite support this). Once this rework is deployed to GitHub Pages:
+Use a React 18.3 or React 19 project initialized with [shadcn/ui](https://ui.shadcn.com/docs/installation), with CSS Modules support (Next.js and Vite support this). Once this rework is deployed to GitHub Pages:
 
 ```sh
 npx shadcn@latest add https://ductinhkzz.github.io/dnd-tree-sortable/r/sortable-tree.json
@@ -80,11 +80,11 @@ For uncontrolled use, pass `defaultItems` instead of `items`. `defaultItems` is 
 
 Focus a drag handle and press Space to pick up an item. Use Up/Down to reorder, Left/Right to change nesting, Space to drop, and Escape to cancel. Keyboard movement is limited to currently rendered rows in the virtualized viewport.
 
-The styles use `--background`, `--foreground`, `--border`, `--primary`, and `--ring` with standalone fallbacks. The installed source supports client components and guards browser APIs during server rendering. It has been checked with React 18; React 19 support has not been validated.
+The styles use `--background`, `--foreground`, `--border`, `--primary`, and `--ring` with standalone fallbacks. The installed source supports client components and guards browser APIs during server rendering. The development site and interaction tests run on React 19.3. React 18.3 remains in the supported peer range and is checked in an installed-source consumer build.
 
 ## Develop and build
 
-Use Node.js 22 or newer and npm. From the repository root:
+Use Node.js 24 LTS (see `.nvmrc`) and npm. Node.js 22.12+ is also supported. From the repository root:
 
 ```sh
 npm ci
@@ -95,6 +95,7 @@ npm run dev
 Visit `http://localhost:5173/dnd-tree-sortable/`. The live homepage includes preview/code tabs, theme switching, collapse/removal controls, and a copyable install command that uses the current origin.
 
 ```sh
+npm run format:check
 npm run lint
 npm run typecheck
 npm run build-docs
@@ -112,7 +113,7 @@ Test from a disposable, initialized consumer project:
 npx shadcn@latest add http://localhost:5173/dnd-tree-sortable/r/sortable-tree.json
 ```
 
-Pull requests run lint, website/registry build, regression tests, and library build. The existing GitHub Pages workflow deploys `docs/dist` after merging to `master`, using the repository's existing `ACCESS_TOKEN` secret. The registry is available publicly only after that deployment succeeds.
+CI checks formatting, lint, file naming, types, the latest commit message, website/registry build, Vitest tests, the library build, and production dependency advisories. The existing GitHub Pages workflow deploys `docs/dist` after merging to `master`, using the repository's existing `ACCESS_TOKEN` secret. The registry is available publicly only after that deployment succeeds.
 
 ## Existing npm package
 
@@ -127,4 +128,35 @@ The new registry flow copies the source and includes CSS Module imports automati
 
 ## Credits
 
-Built on the [dnd-kit sortable tree example](https://github.com/clauderic/dnd-kit/tree/master/stories/3%20-%20Examples/Tree) with [React Virtuoso](https://virtuoso.dev/) and [rc-scrollbars](https://github.com/sakhnyuk/rc-scrollbars). Registry format follows the [shadcn registry guide](https://ui.shadcn.com/docs/registry/getting-started).
+Built on the [dnd-kit sortable tree example](https://github.com/clauderic/dnd-kit/tree/master/stories/3%20-%20Examples/Tree) with [React Virtuoso](https://virtuoso.dev/) and native scrolling. Registry format follows the [shadcn registry guide](https://ui.shadcn.com/docs/registry/getting-started).
+
+## Tooling and naming
+
+- **Oxlint** checks TypeScript, React hooks, accessibility, and Vitest code. Vite 8 uses the Oxc transform pipeline.
+- **Oxfmt** replaces Prettier. Run `npm run format` to write changes, or `npm run format:check` to verify them.
+- **Vitest** replaces the Node/tsx test runner. `npm test` rebuilds the registry and runs utility, registry, SSR, and React interaction tests; `npm run test:watch` watches tests.
+- **commitlint** enforces Conventional Commits through Husky's `commit-msg` hook. Use messages such as `feat: add custom tree rows` or `fix: preserve numeric item ids`. CI checks the newest commit; existing repository history is not rewritten.
+- The pre-commit hook checks formatting, lint, and types. `npm run check` runs all project checks.
+- File and folder names use **kebab-case**, enforced by `scripts/check-file-names.mjs`. Standard dotfiles/config extensions and GitHub's conventional `README.md` name are allowed. Component/export names remain PascalCase.
+
+## Dependency review — October 10, 2026
+
+Direct versions were checked against npm's stable `latest` tags. The lockfile records the tested versions.
+
+| Area                                | Version                | Review                                                                      |
+| ----------------------------------- | ---------------------- | --------------------------------------------------------------------------- |
+| React / React DOM                   | 19.3.0                 | Site and interaction tests migrated from React 18                           |
+| Vite / React plugin                 | 8.3.4 / 6.1.2          | Oxc/Rolldown build; removed old Rollup plugin configuration                 |
+| TypeScript                          | 7.0.2                  | Removed `baseUrl`; direct declaration generation replaces `vite-plugin-dts` |
+| Vitest                              | 5.0.3                  | Node utility/SSR tests and jsdom interaction tests                          |
+| Oxlint / Oxfmt                      | 1.87.0 / 0.72.0        | Replaces ESLint and Prettier                                                |
+| commitlint / Husky                  | 21.2.3 / 9.1.7         | Conventional Commit validation and local hooks                              |
+| React Virtuoso                      | 4.18.16                | Native scroll viewport replaces `rc-scrollbars`                             |
+| dnd-kit core / sortable / utilities | 6.3.1 / 10.0.0 / 3.2.2 | Latest stable versions of the existing classic API                          |
+| shadcn                              | 4.21.4                 | Latest stable registry CLI                                                  |
+
+Removed `rc-scrollbars` (its peer range stops at React 18), ESLint and its plugins, Prettier, tsx, glob, the Rollup visualizer, and `vite-plugin-dts`. The unused React Pages/MDX docs tree, old docs lockfile, template pages, and redundant TypeScript configs were removed. Runtime dependencies now live in `dependencies`, and the npm build externalizes them rather than copying them into the bundle.
+
+The [new dnd-kit architecture](https://github.com/clauderic/dnd-kit) offers `@dnd-kit/react` 0.5.0. That is a different API, not an upgrade of `@dnd-kit/core`. Migrating would require rebuilding nested-tree projection, virtualized sorting, keyboard movement, and announcements. The classic implementation stays on its latest stable packages for this revision; that architectural migration remains open.
+
+`npm audit --omit=dev` reports **zero production vulnerabilities**. The full audit reports **seven high-severity development-only entries** associated with shadcn's transitive `braces` → `micromatch` → `fast-glob` dependency chain (including ts-morph and @shadcn/registry). These are package-level audit entries, not seven independently validated application vulnerabilities. The installed latest shadcn version still carries them; no forced downgrade or unverified override was applied. Track [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm) and update the CLI when a safe upstream fix is available.

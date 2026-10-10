@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
-import { test } from 'node:test';
+import { test } from 'vitest';
 
 test('registry includes every source file and stylesheet with unique, safe installation paths', () => {
   const registry = JSON.parse(readFileSync('registry.json', 'utf8'));

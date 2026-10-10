@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+import { test } from 'vitest';
+import type { TreeItem } from '../lib/types';
 import {
   buildTree,
   flattenTree,
@@ -11,7 +12,7 @@ import {
 } from '../lib/utilities';
 
 test('tree round-trip preserves custom data and distinct string/numeric IDs, including root and zero', () => {
-  const items = [
+  const items: TreeItem<{ label: string }>[] = [
     {
       id: 'root',
       label: 'Root folder',
@@ -61,7 +62,7 @@ test('utilities can be imported without browser globals during SSR', () => {
 test('collapse and removal leave controlled data untouched and preserve function payloads', () => {
   const render = () => 'custom';
   const child = { id: 'child', render, children: [] };
-  const items = [{ id: 0, collapsed: false, render, children: [child] }];
+  const items: TreeItem<{ render: () => string }>[] = [{ id: 0, collapsed: false, render, children: [child] }];
   const collapsed = setProperty(items, 0, 'collapsed', () => true);
   assert.equal(collapsed[0].collapsed, true);
   assert.equal(items[0].collapsed, false);
