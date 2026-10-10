@@ -3,8 +3,8 @@ import type { FlattenedItem, SensorContext } from './types';
 import { getProjection } from './utilities';
 
 /** Keyboard navigation follows visible tree order; horizontal arrows change nesting only. */
-export function createTreeKeyboardSensor<T extends FlattenedItem>(
-  context: SensorContext<T>,
+export function createTreeKeyboardSensor<T extends object>(
+  context: SensorContext<FlattenedItem<T>>,
   indentationWidth: number,
 ): typeof KeyboardSensor {
   return class TreeKeyboardSensor extends KeyboardSensor {
@@ -26,6 +26,7 @@ export function createTreeKeyboardSensor<T extends FlattenedItem>(
           overId,
           position.current.x - position.initial.x,
           indentationWidth,
+          context.current.canHaveChildren,
         );
         if (!projection) return;
         const { depth, minDepth, maxDepth } = projection;
@@ -40,16 +41,23 @@ export function createTreeKeyboardSensor<T extends FlattenedItem>(
       const index = items.findIndex(({ id }) => id === overId);
       const next = items[index + (direction === 'up' ? -1 : 1)];
       if (!next) return;
-      const droppable = this.manager.registry.droppables.get(next.id);
-      const element = droppable?.element;
-      const currentElement = target?.element ?? source.element;
-      if (!element || !currentElement) return;
-      const nextRect = element.getBoundingClientRect();
-      const currentRect = currentElement.getBoundingClientRect();
-      void this.manager.actions.setDropTarget(next.id).then(() => {
-        this.manager.actions.move({ event, by: { x: 0, y: nextRect.top - currentRect.top } });
+      const nextIndex = index + (direction === 'up' ? -1 : 1);
+      const activatorEvent = this.manager.dragOperation.activatorEvent;
+      const currentTop = (target?.element ?? source.element)?.getBoundingClientRect().top;
+      void (async () => {
+        await context.current.reveal?.(nextIndex);
+        // A scroll/mount can finish after Escape or a controlled data update.
+        if (
+          this.manager.dragOperation.source?.id !== source.id ||
+          this.manager.dragOperation.activatorEvent !== activatorEvent
+        )
+          return;
+        const element = this.manager.registry.droppables.get(next.id)?.element;
+        if (!element) return;
+        await this.manager.actions.setDropTarget(next.id);
+        this.manager.actions.move({ event, by: { x: 0, y: element.getBoundingClientRect().top - (currentTop ?? 0) } });
         element.scrollIntoView?.({ block: 'nearest' });
-      });
+      })();
     }
   };
 }

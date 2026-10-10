@@ -28,6 +28,23 @@ vi.hoisted(() => {
   document.getAnimations = () => [];
   Element.prototype.getAnimations = () => [];
   HTMLElement.prototype.scrollIntoView = () => {};
+  // Virtualization needs viewport and row measurements; jsdom returns zero without layout.
+  Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
+    configurable: true,
+    get() {
+      return this.hasAttribute('data-tree-row') ? 40 : 240;
+    },
+  });
+  Object.defineProperty(HTMLElement.prototype, 'offsetWidth', {
+    configurable: true,
+    get() {
+      return 300;
+    },
+  });
+  HTMLElement.prototype.scrollTo = function (options?: ScrollToOptions | number, _y?: number) {
+    if (options && typeof options !== 'number') this.scrollTop = options.top ?? this.scrollTop;
+    this.dispatchEvent(new Event('scroll'));
+  };
   vi.stubGlobal(
     'IntersectionObserver',
     class {
@@ -79,7 +96,11 @@ beforeEach(() => {
     }
     const row = this.closest('[data-tree-row]');
     const rows = [...document.querySelectorAll('[data-tree-row]')];
-    const top = Math.max(0, rows.indexOf(row!)) * 40;
+    const viewport = row?.closest('[data-slot="scroll-area-viewport"]');
+    const top =
+      row instanceof HTMLElement && row.style.position === 'absolute'
+        ? parseFloat(row.style.top) - (viewport?.scrollTop ?? 0)
+        : Math.max(0, rows.indexOf(row!)) * 40;
     const height = row ? 40 : 1000;
     return { x: 0, y: top, left: 0, top, right: 300, bottom: top + height, width: 300, height, toJSON() {} };
   });
@@ -308,4 +329,162 @@ test('a controlled source removed during a drag is ignored safely on drop', asyn
   rerender(<SortableTree items={[{ id: 'target', children: [] }]} onItemsChange={changed} />);
   await user.keyboard('[Space]');
   expect(changed).not.toHaveBeenCalled();
+});
+
+test('Explorer provides folder semantics, single selection, navigation and file activation', async () => {
+  const opened = vi.fn<(item: TreeItem) => void>();
+  const selected = vi.fn<(item: TreeItem) => void>();
+  render(
+    <SortableTree
+      mode='explorer'
+      onOpen={opened}
+      onSelect={selected}
+      defaultItems={[
+        {
+          id: 'src',
+          kind: 'folder',
+          collapsed: true,
+          children: [{ id: 'main', label: 'main.tsx', kind: 'file', children: [] }],
+        },
+        { id: 'empty', kind: 'folder', children: [] },
+      ]}
+    />,
+  );
+  const user = userEvent.setup();
+  expect(screen.getByRole('tree')).toBeDefined();
+  const folder = screen.getByRole('treeitem', { name: 'src' });
+  expect(folder.getAttribute('aria-expanded')).toBe('false');
+  folder.focus();
+  await user.keyboard('[ArrowRight][ArrowRight]');
+  const file = screen.getByRole('treeitem', { name: 'main.tsx' });
+  expect(document.activeElement).toBe(file);
+  expect(file.getAttribute('aria-selected')).toBe('true');
+  expect(file.hasAttribute('aria-expanded')).toBe(false);
+  expect(file.getAttribute('aria-level')).toBe('2');
+  await user.keyboard('[Enter]');
+  expect(opened.mock.calls[0][0].id).toBe('main');
+  await user.keyboard('[ArrowLeft][ArrowLeft]');
+  expect(document.activeElement).toBe(folder);
+  expect(screen.queryByRole('treeitem', { name: 'main.tsx' })).toBeNull();
+  await user.keyboard('[End]');
+  expect(document.activeElement).toBe(screen.getByRole('treeitem', { name: 'empty' }));
+  expect(selected).toHaveBeenCalled();
+});
+
+test('Explorer click toggles folders and controlled selection follows its owner', async () => {
+  const select = vi.fn<(item: TreeItem) => void>();
+  const items: TreeItem[] = [{ id: 'folder', kind: 'folder', children: [{ id: 0, kind: 'file', children: [] }] }];
+  const { rerender } = render(<SortableTree mode='explorer' items={items} selectedId={0} onSelect={select} />);
+  await userEvent.setup().click(screen.getByText('folder'));
+  expect(select.mock.calls[0][0].id).toBe('folder');
+  // Controlled selection changes only after the owner supplies the next value.
+  expect(screen.getByRole('treeitem', { name: 'folder' }).getAttribute('aria-selected')).toBe('false');
+  rerender(<SortableTree mode='explorer' items={items} selectedId='folder' onSelect={select} />);
+  expect(screen.getByRole('treeitem', { name: 'folder' }).getAttribute('aria-selected')).toBe('true');
+});
+
+test('large trees render a bounded window and keyboard navigation reaches unmounted rows', async () => {
+  const items: TreeItem[] = Array.from({ length: 1000 }, (_, id) => ({ id, kind: 'file', children: [] }));
+  const { container } = render(<SortableTree mode='explorer' defaultItems={items} height={240} />);
+  expect(container.querySelectorAll('[data-tree-row]').length).toBeLessThan(40);
+  expect(screen.queryByRole('treeitem', { name: '999' })).toBeNull();
+  const first = screen.getByRole('treeitem', { name: '0' });
+  expect(first.getAttribute('aria-setsize')).toBe('1000');
+  first.focus();
+  await userEvent.setup().keyboard('[End]');
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('treeitem', { name: '999' })));
+  expect(container.querySelectorAll('[data-tree-row]').length).toBeLessThan(40);
+});
+
+test('virtualization can be disabled and activates using visible rather than collapsed node counts', () => {
+  const children: TreeItem[] = Array.from({ length: 250 }, (_, id) => ({ id, children: [] }));
+  const { container, rerender } = render(<SortableTree items={children} virtualize={false} />);
+  expect(container.querySelectorAll('[data-tree-row]').length).toBe(250);
+  rerender(<SortableTree items={[{ id: 'folder', collapsed: true, children }]} collapsible />);
+  expect(container.querySelectorAll('[data-tree-row]').length).toBe(1);
+});
+
+test('keyboard drag mounts an offscreen target and preserves source registration in a virtual tree', async () => {
+  const changed = vi.fn<(items: TreeItem[]) => void>();
+  render(
+    <SortableTree
+      mode='explorer'
+      height={240}
+      onItemsChange={changed}
+      defaultItems={Array.from({ length: 1000 }, (_, id) => ({ id, kind: 'file', children: [] }))}
+    />,
+  );
+  const user = userEvent.setup();
+  screen.getByRole('treeitem', { name: '0' }).focus();
+  await user.keyboard('[End]');
+  screen.getByRole('button', { name: 'Drag 999' }).focus();
+  await user.keyboard('[Space][ArrowUp]');
+  await waitFor(() => expect(screen.queryByText('999 was moved after 997.')).not.toBeNull());
+  await user.keyboard('[Space]');
+  await waitFor(() => expect(changed).toHaveBeenCalled());
+  expect(changed.mock.calls[0][0].slice(-2).map((item: TreeItem) => item.id)).toEqual([999, 998]);
+});
+
+test('Explorer expands a collapsed drop target after hovering and cancels safely', async () => {
+  render(
+    <SortableTree
+      mode='explorer'
+      defaultItems={[
+        { id: 'file', kind: 'file', children: [] },
+        { id: 'folder', kind: 'folder', collapsed: true, children: [{ id: 'child', kind: 'file', children: [] }] },
+      ]}
+    />,
+  );
+  const user = userEvent.setup();
+  screen.getByRole('button', { name: 'Drag file' }).focus();
+  await user.keyboard('[Space][ArrowDown]');
+  await waitFor(() => expect(screen.queryByRole('treeitem', { name: 'child' })).not.toBeNull(), { timeout: 1500 });
+  await user.keyboard('[Escape]');
+  expect(screen.getByRole('treeitem', { name: 'file' })).toBeDefined();
+});
+
+test('Explorer typeahead selects a file outside the rendered window', async () => {
+  render(
+    <SortableTree
+      mode='explorer'
+      defaultItems={Array.from({ length: 1000 }, (_, id) => ({
+        id,
+        label: `file-${id}`,
+        kind: 'file',
+        children: [],
+      }))}
+    />,
+  );
+  screen.getByRole('treeitem', { name: 'file-0' }).focus();
+  await userEvent.setup().keyboard('file-999');
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('treeitem', { name: 'file-999' })));
+});
+
+test('pointer drag keeps its virtual source mounted while scrolling to distant rows', async () => {
+  const changed = vi.fn<(items: TreeItem[]) => void>();
+  const { container } = render(
+    <SortableTree
+      height={240}
+      onItemsChange={changed}
+      defaultItems={Array.from({ length: 1000 }, (_, id) => ({ id, children: [] }))}
+    />,
+  );
+  const handle = screen.getByRole('button', { name: 'Drag 0' });
+  await act(async () => {
+    fireEvent.pointerDown(handle, { clientX: 150, clientY: 20, button: 0 });
+    fireEvent.pointerMove(document, { clientX: 150, clientY: 30 });
+  });
+  await waitFor(() => expect(handle.getAttribute('aria-pressed')).toBe('true'));
+  const viewport = container.querySelector<HTMLElement>('[data-slot="scroll-area-viewport"]')!;
+  await act(async () => viewport.scrollTo({ top: 2400 }));
+  await waitFor(() => expect(screen.queryByRole('button', { name: 'Drag 55' })).not.toBeNull());
+  expect(handle.isConnected).toBe(true);
+  const target = screen.getByRole('button', { name: 'Drag 55' }).closest('[data-tree-row]')!;
+  const y = target.getBoundingClientRect().top + 20;
+  await act(async () => fireEvent.pointerMove(document, { clientX: 150, clientY: y }));
+  await waitFor(() => expect(screen.queryByText('0 was moved after 55.')).not.toBeNull());
+  fireEvent.pointerUp(document, { clientX: 150, clientY: y });
+  await waitFor(() => expect(changed).toHaveBeenCalled());
+  const order = changed.mock.calls[0][0].map((item) => item.id);
+  expect(order.indexOf(0)).toBe(order.indexOf(55) + 1);
 });

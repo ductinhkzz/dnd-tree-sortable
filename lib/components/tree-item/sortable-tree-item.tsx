@@ -18,6 +18,7 @@ const SortableTreeItemComponent = <T extends TreeItemType>({
   index = 0,
   depth,
   renderItem,
+  wrapperRef,
   ...props
 }: SortableTreeItemProps<T>) => {
   const { sourceRef, targetRef, handleRef, isDragSource } = useSortable({
@@ -31,7 +32,10 @@ const SortableTreeItemComponent = <T extends TreeItemType>({
 
   const itemProps = {
     ref: sourceRef,
-    wrapperRef: targetRef,
+    wrapperRef: (node: HTMLLIElement | null) => {
+      targetRef(node);
+      wrapperRef?.(node);
+    },
     depth: depth,
     ghost: isDragSource,
     disableSelection: source !== null,

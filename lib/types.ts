@@ -5,11 +5,15 @@ import { ActionProps, BadgeProps } from './components';
 export type BaseTreeItem = {
   id: UniqueIdentifier;
   collapsed?: boolean;
+  kind?: 'file' | 'folder';
+  label?: string;
 };
 
 export type TreeItem<T extends object = {}> = T & {
   id: UniqueIdentifier;
   collapsed?: boolean;
+  kind?: 'file' | 'folder';
+  label?: string;
   children: TreeItem<T>[];
 };
 
@@ -22,7 +26,7 @@ export type FlattenedItem<T extends object = {}> = TreeItem<T> & {
 };
 
 export type SensorContext<T extends FlattenedItem> = {
-  current: { items: T[] };
+  current: { items: T[]; canHaveChildren?: (item: T) => boolean; reveal?: (index: number) => Promise<void> };
 };
 
 export type ProjectedType = {

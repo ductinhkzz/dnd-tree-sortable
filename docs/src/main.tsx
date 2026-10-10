@@ -30,6 +30,39 @@ const initialItems: TreeItem[] = [
   },
 ];
 
+const explorerItems: TreeItem[] = [
+  {
+    id: 'src',
+    kind: 'folder',
+    children: [
+      {
+        id: 'components',
+        kind: 'folder',
+        children: [
+          { id: 'button', label: 'button.tsx', kind: 'file', children: [] },
+          { id: 'tree', label: 'sortable-tree.tsx', kind: 'file', children: [] },
+        ],
+      },
+      { id: 'main', label: 'main.tsx', kind: 'file', children: [] },
+      { id: 'styles', label: 'styles.css', kind: 'file', children: [] },
+    ],
+  },
+  {
+    id: 'public',
+    kind: 'folder',
+    collapsed: true,
+    children: [{ id: 'favicon', label: 'favicon.svg', kind: 'file', children: [] }],
+  },
+  { id: 'empty', label: 'Empty folder', kind: 'folder', children: [] },
+  { id: 'package', label: 'package.json', kind: 'file', children: [] },
+];
+const largeItems: TreeItem[] = Array.from({ length: 1000 }, (_, index) => ({
+  id: `file-${index}`,
+  label: `document-${String(index + 1).padStart(4, '0')}.tsx`,
+  kind: 'file',
+  children: [],
+}));
+
 const registryUrl = new URL(`${import.meta.env.BASE_URL}r/sortable-tree.json`, window.location.origin).href;
 const command = `pnpm dlx shadcn@latest add ${registryUrl}`;
 const usage = `"use client";
@@ -58,6 +91,30 @@ export function TreeDemo() {
   );
 }`;
 
+const explorerUsage = `"use client";
+
+import { SortableTree, type TreeItem } from "@/components/dnd-tree-sortable";
+
+const items: TreeItem[] = [
+  { id: "src", kind: "folder", children: [
+    { id: "main", label: "main.tsx", kind: "file", children: [] },
+  ] },
+  { id: "public", kind: "folder", children: [] },
+];
+
+export function ExplorerDemo() {
+  return (
+    <SortableTree
+      mode="explorer"
+      defaultItems={items}
+      virtualize={{ threshold: 200, overscan: 8 }}
+      onOpen={(file) => console.log("Open", file.id)}
+      height={400}
+      indicator
+    />
+  );
+}`;
+
 function CopyButton({ value }: { value: string }) {
   const [status, setStatus] = useState('Copy');
   async function copy() {
@@ -78,6 +135,13 @@ function CopyButton({ value }: { value: string }) {
 
 export function App() {
   const [items, setItems] = useState(initialItems);
+  const [example, setExample] = useState<'sortable' | 'explorer' | 'large'>('sortable');
+  const [openedFile, setOpenedFile] = useState<string | null>(null);
+  function loadExample(next: typeof example) {
+    setExample(next);
+    setOpenedFile(null);
+    setItems(structuredClone(next === 'sortable' ? initialItems : next === 'explorer' ? explorerItems : largeItems));
+  }
   const [tab, setTab] = useState<'preview' | 'code'>('preview');
   const [removable, setRemovable] = useState(false);
   const [indicator, setIndicator] = useState(true);
@@ -195,6 +259,9 @@ export function App() {
                       <span>↳</span>
                     </div>
                     <SortableTree
+                      key={example}
+                      mode={example === 'sortable' ? 'tree' : 'explorer'}
+                      onOpen={(item) => setOpenedFile(item.label ?? String(item.id))}
                       items={items}
                       onItemsChange={setItems}
                       height={390}
@@ -203,7 +270,13 @@ export function App() {
                       removable={removable}
                       indicator={indicator}
                     />
-                    <div className='tree-footer'>Drag horizontally to nest · Space + arrow keys to move</div>
+                    <div className='tree-footer'>
+                      {example === 'sortable'
+                        ? 'Drag horizontally to nest · Space + arrow keys to move'
+                        : openedFile
+                          ? `Opened ${openedFile}`
+                          : 'Click folders to expand · Arrow keys to navigate · Enter to open files'}
+                    </div>
                   </div>
                   <aside>
                     <div className='eyebrow'>MAKE IT YOURS</div>
@@ -213,6 +286,19 @@ export function App() {
                       Full control.
                     </h3>
                     <p>Your data, your rows, your design. The source lives in your project.</p>
+                    <div className='flex flex-wrap gap-2' aria-label='Tree examples'>
+                      {(['sortable', 'explorer', 'large'] as const).map((value) => (
+                        <Button
+                          key={value}
+                          variant={example === value ? 'secondary' : 'outline'}
+                          size='sm'
+                          aria-pressed={example === value}
+                          onClick={() => loadExample(value)}
+                        >
+                          {value === 'sortable' ? 'Sortable' : value === 'explorer' ? 'Explorer' : '1,000 files'}
+                        </Button>
+                      ))}
+                    </div>
                     <label>
                       <input type='checkbox' checked={indicator} onChange={(e) => setIndicator(e.target.checked)} />{' '}
                       Drop indicator
@@ -221,21 +307,16 @@ export function App() {
                       <input type='checkbox' checked={removable} onChange={(e) => setRemovable(e.target.checked)} />{' '}
                       Removable items
                     </label>
-                    <Button
-                      variant='outline'
-                      size='sm'
-                      className='reset'
-                      onClick={() => setItems(structuredClone(initialItems))}
-                    >
+                    <Button variant='outline' size='sm' className='reset' onClick={() => loadExample(example)}>
                       ↺ Reset tree
                     </Button>
                   </aside>
                 </div>
               ) : (
                 <div className='code-panel'>
-                  <CopyButton value={usage} />
+                  <CopyButton value={example === 'sortable' ? usage : explorerUsage} />
                   <pre>
-                    <code>{usage}</code>
+                    <code>{example === 'sortable' ? usage : explorerUsage}</code>
                   </pre>
                 </div>
               )}

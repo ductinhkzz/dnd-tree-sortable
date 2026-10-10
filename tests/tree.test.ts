@@ -132,3 +132,16 @@ test('nesting into a collapsed folder expands it so the moved item remains visib
     ['hidden', 'file'],
   );
 });
+
+test('Explorer projections prevent files from receiving children while empty folders accept them', () => {
+  const leafItems: TreeItem[] = [
+    { id: 'file', kind: 'file', children: [] },
+    { id: 'source', kind: 'file', children: [] },
+  ];
+  const foldersOnly = (item: TreeItem) => item.kind === 'folder';
+  assert.equal(getProjection(flattenTree(leafItems), 'source', 'source', 24, 24, foldersOnly)?.depth, 0);
+  assert.equal(moveTreeItem(leafItems, 'source', 'source', 24, 24, foldersOnly), null);
+  const folderItems: TreeItem[] = [{ id: 'folder', kind: 'folder', children: [] }, leafItems[1]];
+  const result = moveTreeItem(folderItems, 'source', 'source', 24, 24, foldersOnly);
+  assert.equal(result?.items[0].children[0].id, 'source');
+});

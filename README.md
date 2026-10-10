@@ -85,7 +85,28 @@ Focus a drag handle and press Space to pick up an item. Use Up/Down to reorder, 
 
 The component uses semantic utilities such as `bg-background`, `text-foreground`, `bg-accent`, and `ring-ring`. It inherits the consumer's light/dark theme, border radius, and color tokens. Controls have visible keyboard focus, item-specific labels, expanded state, and decorative icons hidden from assistive technology. The container uses a labeled list rather than claiming an ARIA tree widget with unsupported navigation semantics. `Action` uses the native button with shadcn `buttonVariants` so handle refs work on both React 18 and React 19.
 
-Virtuoso and CSS Modules have been removed. This version renders all expanded nodes; it does not virtualize large trees. The npm stylesheet compiles the same Tailwind classes without adding a global preflight reset. Registry consumers use their existing Tailwind pipeline and do not import that stylesheet.
+Virtuoso and CSS Modules have been removed. Large trees now use TanStack Virtual inside the shadcn ScrollArea; small trees render all expanded nodes. The npm stylesheet compiles the same Tailwind classes without adding a global preflight reset. Registry consumers use their existing Tailwind pipeline and do not import that stylesheet.
+
+## Explorer and large trees
+
+Use `mode="explorer"` for folder/file icons, single selection, click-to-toggle folders, arrow-key navigation, Home/End, typeahead, and Enter/double-click file activation. Supply `kind: "folder"` for empty folders and `kind: "file"` for leaves. Nodes without `kind` are inferred as folders when they have children. Files cannot receive children during a drag. Folders expand after a 700 ms drag hover; cancelling the drag keeps that expansion.
+
+```tsx
+<SortableTree
+  mode='explorer'
+  defaultItems={[
+    { id: 'src', kind: 'folder', children: [{ id: 'main', label: 'main.tsx', kind: 'file', children: [] }] },
+    { id: 'empty', kind: 'folder', children: [] },
+  ]}
+  onSelect={(item) => console.log('Select', item.id)}
+  onOpen={(file) => console.log('Open', file.id)}
+  virtualize={{ threshold: 200, estimateSize: 46, overscan: 8 }}
+/>
+```
+
+`selectedId` controls selection; update it from `onSelect`. `items`/`onItemsChange` continue to control tree structure. Opening a file calls `onOpen`; the host application supplies its editor or preview. Rename/create and multi-selection are outside this first Explorer implementation. Use the existing drag handle for Space/Enter pickup and arrow-key reordering; row arrow keys navigate the Explorer.
+
+Virtualization activates automatically at **200 visible nodes** in both modes, so collapsed descendants do not count. Set `virtualize={true}` to always virtualize or `virtualize={false}` to render every visible row. Rows are measured for custom heights. Focused rows and drag sources stay mounted; keyboard targets are revealed before the drag moves. Custom `renderItemContent` implementations must forward `wrapperRef`, `wrapperStyle`, `data-index`, and the supplied accessibility/event props to the outer row (the built-in row does this). The playground includes Sortable, Explorer, and 1,000-file examples.
 
 ## Develop and build
 
@@ -161,6 +182,7 @@ Direct versions were checked against npm's stable `latest` tags. The lockfile re
 | Radix UI                                   | 1.7.0           | Official shadcn ScrollArea, Button, and Badge foundations                   |
 | Lucide / cn                                | 1.54.0 / 0.4.0  | Theme-aware icons and the class merge helper used by current shadcn source  |
 | dnd-kit React / DOM / abstract / collision | 0.5.0           | New architecture; removed core, sortable, and utilities packages            |
+| TanStack Virtual                           | 3.14.14         | Headless virtualization within the shadcn ScrollArea                        |
 | shadcn                                     | 4.21.4          | Latest stable registry CLI                                                  |
 
 Removed `react-virtuoso`, `rc-scrollbars` (its peer range stops at React 18), ESLint and its plugins, Prettier, tsx, glob, the Rollup visualizer, and `vite-plugin-dts`. The unused React Pages/MDX docs tree, old docs lockfile, template pages, and redundant TypeScript configs were removed. Runtime dependencies now live in `dependencies`, and the npm build externalizes them rather than copying them into the bundle.
@@ -176,7 +198,7 @@ Custom `components.Handle` implementations receive `elementRef` in `ActionProps`
 - Nesting into a collapsed parent expands it after a successful drop so the result stays visible.
 - Flattening uses one accumulator and descendant exclusion uses a Set, avoiding repeated array copies and linear membership scans.
 - Drag placeholders retain their row height. Optional before/after markers show the projected nesting level without shrinking the list.
-- Collapse/removal controls are disabled during a drag; keyboard Escape cancels without reporting data changes.
+- Collapse/removal controls are disabled during a drag; keyboard Escape cancels the move without applying a reorder. Hover-expanded Explorer folders remain open.
 - Tests cover tree invariants across reorder/nesting combinations, real ScrollArea and sensor interactions, numeric IDs, custom payloads/handles, controlled updates, cancellation, empty states, and SSR.
 
 `pnpm audit --prod` reports **zero production vulnerabilities**. The full pnpm audit reports **one high-severity development-only advisory** for `braces`, reached through three shadcn dependency paths (`fast-glob`, ts-morph, and @shadcn/registry). This is the same advisory previously reported as seven package-level entries by npm. The installed latest shadcn version still carries them; no forced downgrade or unverified override was applied. Track [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm) and update the CLI when a safe upstream fix is available.

@@ -19,6 +19,7 @@ export function getProjection<T extends object>(
   overId: UniqueIdentifier,
   dragOffset: number,
   indentationWidth: number,
+  canHaveChildren: (item: FlattenedItem<T>) => boolean = () => true,
 ): ProjectedType | null {
   const overItemIndex = items.findIndex(({ id }) => id === overId);
   const activeItemIndex = items.findIndex(({ id }) => id === activeId);
@@ -36,9 +37,7 @@ export function getProjection<T extends object>(
   const nextItem = newItems[overItemIndex + 1];
   const dragDepth = getDragDepth(dragOffset, indentationWidth);
   const projectedDepth = activeItem.depth + dragDepth;
-  const maxDepth = getMaxDepth({
-    previousItem,
-  });
+  const maxDepth = previousItem ? previousItem.depth + (canHaveChildren(previousItem) ? 1 : 0) : 0;
   const minDepth = getMinDepth({ nextItem });
   let depth = projectedDepth;
 
@@ -72,14 +71,6 @@ export function getProjection<T extends object>(
   }
 }
 
-function getMaxDepth<T extends object>({ previousItem }: { previousItem: FlattenedItem<T> }) {
-  if (previousItem) {
-    return previousItem.depth + 1;
-  }
-
-  return 0;
-}
-
 function getMinDepth<T extends object>({ nextItem }: { nextItem: FlattenedItem<T> }) {
   if (nextItem) {
     return nextItem.depth;
@@ -107,11 +98,12 @@ export function moveTreeItem<T extends object>(
   overId: UniqueIdentifier,
   offset: number,
   indentationWidth: number,
+  canHaveChildren?: (item: FlattenedItem<T>) => boolean,
 ) {
   const all = flattenTree(items);
   const collapsed = all.filter((item) => item.collapsed && item.children.length).map((item) => item.id);
   const visible = removeChildrenOf(all, [activeId, ...collapsed]);
-  const projection = getProjection(visible, activeId, overId, offset, indentationWidth);
+  const projection = getProjection(visible, activeId, overId, offset, indentationWidth, canHaveChildren);
   if (!projection) return null;
   const activeIndex = all.findIndex((item) => item.id === activeId);
   const overIndex = all.findIndex((item) => item.id === overId);

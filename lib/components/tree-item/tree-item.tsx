@@ -1,5 +1,6 @@
 import { forwardRef, memo, type HTMLAttributes, type ForwardedRef, type JSX } from 'react';
 import { cn } from 'cn';
+import { FileIcon, FolderIcon, FolderOpenIcon } from 'lucide-react';
 import { Action, type ActionProps } from '../action';
 import type { RenderComponentType, TreeItem as TreeItemType } from '../../types';
 import { Handle as DefaultHandle } from '../handle';
@@ -10,6 +11,10 @@ import { CollapseIcon } from '../icons';
 
 export interface TreeItemProps<T extends TreeItemType> extends Omit<HTMLAttributes<HTMLLIElement>, 'id'> {
   childCount?: number;
+  explorer?: boolean;
+  selected?: boolean;
+  folder?: boolean;
+  wrapperStyle?: HTMLAttributes<HTMLLIElement>['style'];
   clone?: boolean;
   collapsed?: boolean;
   depth: number;
@@ -31,6 +36,10 @@ export interface TreeItemProps<T extends TreeItemType> extends Omit<HTMLAttribut
 const TreeItemComponent = <T extends TreeItemType>(props: TreeItemProps<T>, ref: ForwardedRef<HTMLDivElement>) => {
   const {
     childCount,
+    explorer,
+    selected,
+    folder,
+    wrapperStyle,
     clone,
     depth,
     disableSelection,
@@ -59,14 +68,15 @@ const TreeItemComponent = <T extends TreeItemType>(props: TreeItemProps<T>, ref:
     Badge: DefaultBadge,
     ...components,
   };
-  const label = String(value.id);
+  const label = value.label ?? String(value.id);
+  const Icon = folder ? (collapsed ? FolderIcon : FolderOpenIcon) : FileIcon;
   return (
     <li
-      {...rest}
       data-tree-row={clone ? undefined : ''}
       data-depth={depth}
       aria-label={clone ? undefined : `${label}, level ${depth + 1}`}
       aria-hidden={clone || undefined}
+      {...rest}
       ref={wrapperRef}
       className={cn(
         'relative list-none',
@@ -74,7 +84,7 @@ const TreeItemComponent = <T extends TreeItemType>(props: TreeItemProps<T>, ref:
         disableInteraction && 'pointer-events-none',
         className,
       )}
-      style={{ paddingInlineStart: clone ? 0 : indentationWidth * depth }}
+      style={{ paddingInlineStart: clone ? 0 : indentationWidth * depth, ...wrapperStyle }}
     >
       <div
         ref={ref}
@@ -83,6 +93,7 @@ const TreeItemComponent = <T extends TreeItemType>(props: TreeItemProps<T>, ref:
           'relative flex min-h-11 min-w-0 items-center gap-1 rounded-md border border-border px-1 py-1 text-sm text-foreground transition-colors motion-reduce:transition-none',
           !ghost && !clone && 'hover:bg-accent/60 focus-within:bg-accent/60',
           ghost && 'opacity-35',
+          selected && 'bg-accent text-accent-foreground',
           clone && 'bg-background shadow-lg',
         )}
       >
@@ -107,6 +118,7 @@ const TreeItemComponent = <T extends TreeItemType>(props: TreeItemProps<T>, ref:
         ) : (
           <span className='size-8 shrink-0' aria-hidden='true' />
         )}
+        {explorer && <Icon aria-hidden='true' className='size-4 shrink-0 text-muted-foreground' />}
         <ItemContent {...value} />
         {!clone && onRemove && (
           <Remove aria-label={`Remove ${label}`} disabled={disableInteraction} onClick={onRemove} />
