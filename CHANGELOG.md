@@ -2,7 +2,9 @@
 
 Changes follow [Semantic Versioning](https://semver.org/). Dates below describe published versions; the next release stays unreleased until publication.
 
-## 2.0.0 — Unreleased
+## Unreleased
+
+## 2.0.0 — 2026-10-10
 
 ### Breaking changes
 
