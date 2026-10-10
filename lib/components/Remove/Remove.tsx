@@ -3,6 +3,7 @@ import { Action, ActionProps } from '../Action';
 export const Remove = (props: ActionProps) => {
   return (
     <Action
+      aria-label='Remove item'
       {...props}
       active={{
         fill: 'rgba(255, 70, 70, 0.95)',

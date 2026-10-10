@@ -1,7 +1,7 @@
 import { CSSProperties, HTMLAttributes } from 'react';
 import classNames from 'clsx';
 
-import styles from './Action.module.scss';
+import styles from './Action.module.css';
 
 export interface ActionProps extends HTMLAttributes<HTMLButtonElement> {
   active?: {
@@ -14,6 +14,7 @@ export interface ActionProps extends HTMLAttributes<HTMLButtonElement> {
 export const Action = ({ active, className, cursor, style, ...props }: ActionProps) => {
   return (
     <button
+      type='button'
       {...props}
       className={classNames(styles.Action, className)}
       tabIndex={0}

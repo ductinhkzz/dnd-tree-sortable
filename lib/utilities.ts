@@ -4,7 +4,9 @@ import { AnimateLayoutChanges, arrayMove } from '@dnd-kit/sortable';
 import type { FlattenedItem, ProjectedType, TreeItem } from './types';
 
 export const iOS =
-  /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.userAgent.includes('Mac') && 'ontouchend' in document);
+  typeof navigator !== 'undefined' &&
+  (/iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.userAgent.includes('Mac') && typeof document !== 'undefined' && 'ontouchend' in document));
 
 function getDragDepth(offset: number, indentationWidth: number) {
   return Math.round(offset / indentationWidth);
@@ -92,20 +94,17 @@ export function flattenTree<T extends object>(items: TreeItem<T>[]): FlattenedIt
 }
 
 export function buildTree<T extends object>(flattenedItems: FlattenedItem<T>[]): TreeItem<T>[] {
-  const root = { id: 'root', children: [] } as TreeItem<T>;
-  const nodes: Record<string, TreeItem> = { [root.id]: root };
-  const items = flattenedItems.map((item) => ({ ...item, children: [] }));
-
-  for (const item of items) {
-    const { id, children } = item;
-    const parentId = item.parentId ?? root.id;
-    const parent = nodes[parentId] ?? findItem(items, parentId);
-
-    nodes[id] = { id, children };
-    parent.children.push(item);
+  const roots: TreeItem<T>[] = [];
+  const nodes = new Map<UniqueIdentifier, TreeItem<T>>();
+  for (const { parentId: _parentId, depth: _depth, index: _index, ...item } of flattenedItems) {
+    nodes.set(item.id, { ...item, children: [] } as TreeItem<T>);
   }
-
-  return root.children;
+  for (const item of flattenedItems) {
+    const node = nodes.get(item.id)!;
+    if (item.parentId === null) roots.push(node);
+    else nodes.get(item.parentId)?.children.push(node);
+  }
+  return roots;
 }
 
 export function findItem(items: TreeItem[], itemId: UniqueIdentifier) {
@@ -132,22 +131,13 @@ export function findItemDeep(items: TreeItem[], itemId: UniqueIdentifier): TreeI
   return undefined;
 }
 
-export function removeItem<T extends object>(items: TreeItem<T>[], id: UniqueIdentifier) {
-  const newItems = [];
-
-  for (const item of items) {
-    if (item.id === id) {
-      continue;
-    }
-
-    if (item.children.length) {
-      item.children = removeItem(item.children, id);
-    }
-
-    newItems.push(item);
-  }
-
-  return newItems;
+export function removeItem<T extends object>(items: TreeItem<T>[], id: UniqueIdentifier): TreeItem<T>[] {
+  return items
+    .filter((item) => item.id !== id)
+    .map((item) => ({
+      ...item,
+      children: item.children.length ? removeItem(item.children, id) : item.children,
+    }));
 }
 
 export function setProperty<T extends object, K extends keyof TreeItem>(
@@ -155,19 +145,11 @@ export function setProperty<T extends object, K extends keyof TreeItem>(
   id: UniqueIdentifier,
   property: K,
   setter: (value: TreeItem<T>[K]) => TreeItem<T>[K],
-) {
-  for (const item of items) {
-    if (item.id === id) {
-      item[property] = setter(item[property]);
-      continue;
-    }
-
-    if (item.children.length) {
-      item.children = setProperty(item.children, id, property, setter);
-    }
-  }
-
-  return [...items];
+): TreeItem<T>[] {
+  return items.map((item) => {
+    if (item.id === id) return { ...item, [property]: setter(item[property]) };
+    return item.children.length ? { ...item, children: setProperty(item.children, id, property, setter) } : item;
+  });
 }
 
 function countChildren(items: TreeItem[], count = 0): number {
@@ -190,7 +172,7 @@ export function removeChildrenOf<T extends FlattenedItem>(items: T[], ids: Uniqu
   const excludeParentIds = [...ids];
 
   return items.filter((item) => {
-    if (item.parentId && excludeParentIds.includes(item.parentId)) {
+    if (item.parentId !== null && excludeParentIds.includes(item.parentId)) {
       if (item.children.length) {
         excludeParentIds.push(item.id);
       }
@@ -217,7 +199,7 @@ export const getAnnouncement = (
   items: TreeItem[],
   projected: ProjectedType,
 ) => {
-  const clonedItems: FlattenedItem[] = JSON.parse(JSON.stringify(flattenTree(items)));
+  const clonedItems: FlattenedItem[] = flattenTree(items);
   const overIndex = clonedItems.findIndex(({ id }) => id === overId);
   const activeIndex = clonedItems.findIndex(({ id }) => id === activeId);
   const sortedItems = arrayMove(clonedItems, activeIndex, overIndex);
@@ -230,7 +212,7 @@ export const getAnnouncement = (
 
   if (!previousItem) {
     const nextItem = sortedItems[overIndex + 1];
-    announcement = `${activeId} was ${movedVerb} before ${nextItem.id}.`;
+    announcement = nextItem ? `${activeId} was ${movedVerb} before ${nextItem.id}.` : `${activeId} was ${movedVerb}.`;
   } else if (projected.depth > previousItem.depth) {
     announcement = `${activeId} was ${nestedVerb} under ${previousItem.id}.`;
   } else {

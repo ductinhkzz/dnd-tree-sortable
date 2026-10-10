@@ -144,7 +144,7 @@ const handleVerticalMovement = (
     closestId = collisions[1].id;
   }
 
-  if (closestId && overId) {
+  if (closestId !== null && overId !== undefined) {
     return getNewCoordinates(closestId, ...args);
   }
 };
@@ -167,7 +167,7 @@ export const sortableTreeKeyboardCoordinates: <T extends FlattenedItem>(
         current: { items, offset },
       } = context;
 
-      if (horizontal.includes(event.code) && over?.id) {
+      if (horizontal.includes(event.code) && over !== null) {
         return handleHorizontalMovement(items, event, currentCoordinates, active.id, over.id, offset, indentationWidth);
       }
 

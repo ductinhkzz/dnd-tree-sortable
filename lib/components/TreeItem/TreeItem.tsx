@@ -77,7 +77,11 @@ const TreeItemComponent = <T extends TreeItemType>(props: TreeItemProps<T>, ref:
       <div className={styles.TreeItem} ref={ref} style={style}>
         <Handle {...handleProps} />
         {onCollapse && (
-          <Collapse onClick={onCollapse} className={classNames(styles.Collapse, collapsed && styles.collapsed)}>
+          <Collapse
+            aria-label={collapsed ? 'Expand item' : 'Collapse item'}
+            onClick={onCollapse}
+            className={classNames(styles.Collapse, collapsed && styles.collapsed)}
+          >
             <CollapseIcon />
           </Collapse>
         )}

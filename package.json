@@ -36,10 +36,14 @@
     "build": "tsc --p ./tsconfig.lib.json && vite build",
     "lint": "eslint .",
     "dev": "vite serve docs",
-    "build-docs": "rimraf docs/dist && vite build docs",
-    "ssr-docs": "rimraf docs/dist && vite-pages ssr docs && serve docs/dist",
+    "build-docs": "npm run registry:build && tsc -p docs/tsconfig.app.json && vite build docs",
+    "ssr-docs": "npm run build-docs && vite preview docs",
     "format": "prettier . --write",
-    "prepare": "husky"
+    "prepare": "husky",
+    "registry:build": "shadcn build --output docs/public/r",
+    "typecheck": "tsc -p tsconfig.lib.json && tsc -p docs/tsconfig.app.json",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "predev": "npm run registry:build"
   },
   "peerDependencies": {
     "react": "^18.3.1",
@@ -50,7 +54,6 @@
     "@dnd-kit/sortable": "^8.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@eslint/js": "^9.9.0",
-    "@mdx-js/react": "^3.0.1",
     "@types/node": "^22.5.5",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
@@ -66,17 +69,13 @@
     "rc-scrollbars": "^1.1.6",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^6.26.2",
     "react-virtuoso": "^4.10.4",
-    "rimraf": "^6.0.1",
     "rollup-plugin-visualizer": "^5.12.0",
-    "sass": "^1.78.0",
-    "serve": "^14.2.3",
+    "shadcn": "^4.21.4",
+    "tsx": "^4.23.15",
     "typescript": "^5.5.3",
     "typescript-eslint": "^8.0.1",
     "vite": "^5.4.1",
-    "vite-pages-theme-doc": "^5.0.0",
-    "vite-plugin-dts": "^4.2.1",
-    "vite-plugin-react-pages": "^5.0.0"
+    "vite-plugin-dts": "^4.2.1"
   }
 }

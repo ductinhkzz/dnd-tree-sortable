@@ -13,25 +13,25 @@ jobs:
     steps:
       # Checkout the repository code
       - name: Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       # Set up Node.js
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: '20' # Use your preferred Node.js version
+          node-version: '22' # Use your preferred Node.js version
 
       # Install dependencies
       - name: Install dependencies
-        run: yarn install
+        run: npm ci
 
       # Build the documentation
       - name: Build docs
-        run: yarn build-docs # Replace with your docs build command (e.g., vite-pages or vite build)
+        run: npm run build-docs # Replace with your docs build command (e.g., vite-pages or vite build)
 
       # Deploy to GitHub Pages
       - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
+        uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.ACCESS_TOKEN }}
           publish_dir: ./docs/dist # Change to the directory where your docs are built

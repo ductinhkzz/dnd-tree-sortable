@@ -12,18 +12,18 @@ jobs:
     steps:
       # Step 1: Checkout the repository code
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       # Step 2: Set up Node.js
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: '20' # Adjust to the version you're using
+          node-version: '22' # Adjust to the version you're using
           registry-url: 'https://registry.npmjs.org/'
 
       # Step 3: Install dependencies
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       # Step 4: Build the package (optional, depending on your library)
       - name: Build the package

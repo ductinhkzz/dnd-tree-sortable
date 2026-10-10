@@ -1,3 +1,5 @@
+'use client';
+
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -37,6 +39,8 @@ import { dropAnimationConfig, measuring } from './constants';
 export interface SortableTreeProps<T extends object> {
   collapsible?: boolean;
   defaultItems?: TreeItem<T>[];
+  items?: TreeItem<T>[];
+  onItemsChange?: (items: TreeItem<T>[]) => void;
   indentationWidth?: number;
   indicator?: boolean;
   removable?: boolean;
@@ -50,16 +54,26 @@ export interface SortableTreeProps<T extends object> {
 export const SortableTree = <T extends object = {}>({
   collapsible,
   defaultItems = [],
+  items: controlledItems,
+  onItemsChange,
   indicator = false,
   indentationWidth = 50,
   removable,
   components,
-  height,
+  height = 400,
   renderItemContent,
   onChange,
   onRemove,
 }: SortableTreeProps<T>) => {
-  const [items, setItems] = useState(() => defaultItems);
+  const [internalItems, setInternalItems] = useState(() => defaultItems);
+  const items = controlledItems ?? internalItems;
+  const updateItems = useCallback(
+    (next: TreeItem<T>[]) => {
+      if (controlledItems === undefined) setInternalItems(next);
+      onItemsChange?.(next);
+    },
+    [controlledItems, onItemsChange],
+  );
   const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null);
   const [overId, setOverId] = useState<UniqueIdentifier | null>(null);
   const [offsetLeft, setOffsetLeft] = useState(0);
@@ -72,11 +86,11 @@ export const SortableTree = <T extends object = {}>({
       [],
     );
 
-    return removeChildrenOf(flattenedTree, activeId ? [activeId, ...collapsedItems] : collapsedItems);
+    return removeChildrenOf(flattenedTree, activeId !== null ? [activeId, ...collapsedItems] : collapsedItems);
   }, [activeId, items]);
 
   const projected = useMemo(() => {
-    if (activeId && overId) {
+    if (activeId !== null && overId !== null) {
       return getProjection(flattenedItems, activeId, overId, offsetLeft, indentationWidth);
     }
     return null;
@@ -86,8 +100,9 @@ export const SortableTree = <T extends object = {}>({
     items: flattenedItems,
     offset: offsetLeft,
   });
-  const [coordinateGetter] = useState(() =>
-    sortableTreeKeyboardCoordinates(sensorContext, indicator, indentationWidth),
+  const coordinateGetter = useMemo(
+    () => sortableTreeKeyboardCoordinates(sensorContext, indicator, indentationWidth),
+    [sensorContext, indicator, indentationWidth],
   );
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -98,7 +113,7 @@ export const SortableTree = <T extends object = {}>({
 
   const sortedIds = useMemo(() => flattenedItems.map(({ id }) => id), [flattenedItems]);
   const activeItem = useMemo(
-    () => (activeId ? flattenedItems.find(({ id }) => id === activeId) : null),
+    () => (activeId !== null ? flattenedItems.find(({ id }) => id === activeId) : null),
     [activeId, flattenedItems],
   );
 
@@ -169,7 +184,7 @@ export const SortableTree = <T extends object = {}>({
 
       if (projected && over) {
         const { depth, parentId } = projected;
-        const clonedItems: FlattenedItem<T>[] = JSON.parse(JSON.stringify(flattenTree(items)));
+        const clonedItems: FlattenedItem<T>[] = flattenTree(items);
         const overIndex = clonedItems.findIndex(({ id }) => id === over.id);
         const activeIndex = clonedItems.findIndex(({ id }) => id === active.id);
         const activeTreeItem = clonedItems[activeIndex];
@@ -179,10 +194,10 @@ export const SortableTree = <T extends object = {}>({
         const sortedItems = arrayMove(clonedItems, activeIndex, overIndex);
         const newItems = buildTree<T>(sortedItems);
         onChange?.(activeTreeItem, sortedItems[overIndex]);
-        setItems(newItems);
+        updateItems(newItems);
       }
     },
-    [items, onChange, projected, resetState],
+    [items, onChange, projected, resetState, updateItems],
   );
 
   const handleDragCancel = useCallback(() => {
@@ -191,23 +206,22 @@ export const SortableTree = <T extends object = {}>({
 
   const handleRemove = useCallback(
     (id: UniqueIdentifier) => {
-      setItems((items) => removeItem(items, id));
+      updateItems(removeItem(items, id));
       onRemove?.(id);
     },
-    [onRemove],
+    [items, onRemove, updateItems],
   );
 
-  const handleCollapse = useCallback((id: UniqueIdentifier) => {
-    setItems((items) =>
-      setProperty(items, id, 'collapsed', (value) => {
-        return !value as TreeItem<T>['collapsed'];
-      }),
-    );
-  }, []);
+  const handleCollapse = useCallback(
+    (id: UniqueIdentifier) => {
+      updateItems(setProperty(items, id, 'collapsed', (value) => !value as TreeItem<T>['collapsed']));
+    },
+    [items, updateItems],
+  );
 
   const getMovementAnnouncement = useCallback(
     (eventName: string, activeId: UniqueIdentifier, overId?: UniqueIdentifier) => {
-      if (overId && projected) {
+      if (overId !== undefined && projected) {
         const canNotSetPosition =
           currentPosition && projected.parentId === currentPosition.parentId && overId === currentPosition.overId;
         if (eventName !== 'onDragEnd' && !canNotSetPosition) {
@@ -278,21 +292,24 @@ export const SortableTree = <T extends object = {}>({
             Scroller: VirtuosoScrollbars,
           }}
         />
-        {createPortal(
-          <DragOverlay dropAnimation={dropAnimationConfig} modifiers={indicator ? [adjustTranslate] : undefined}>
-            {activeId && activeItem ? (
-              <SortableTreeItem
-                id={activeId}
-                depth={activeItem.depth}
-                clone
-                childCount={getChildCount(items, activeId) + 1}
-                value={activeItem}
-                indentationWidth={indentationWidth}
-              />
-            ) : null}
-          </DragOverlay>,
-          document.body,
-        )}
+        {typeof document !== 'undefined' &&
+          createPortal(
+            <DragOverlay dropAnimation={dropAnimationConfig} modifiers={indicator ? [adjustTranslate] : undefined}>
+              {activeId !== null && activeItem ? (
+                <SortableTreeItem<TreeItem<T>>
+                  id={activeId}
+                  depth={activeItem.depth}
+                  clone
+                  childCount={getChildCount(items, activeId) + 1}
+                  value={activeItem}
+                  indentationWidth={indentationWidth}
+                  components={components}
+                  renderItem={renderItemContent}
+                />
+              ) : null}
+            </DragOverlay>,
+            document.body,
+          )}
       </SortableContext>
     </DndContext>
   );
