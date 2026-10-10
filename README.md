@@ -178,7 +178,7 @@ Test from a disposable, initialized consumer project:
 pnpm dlx shadcn@latest add http://localhost:5173/dnd-tree-sortable/r/sortable-tree.json
 ```
 
-CI checks formatting, lint, file naming, types, the latest commit message, website/registry build, Vitest tests, the library build, and production dependency advisories. The existing GitHub Pages workflow deploys `docs/dist` after merging to `master`, using GitHub's `GITHUB_TOKEN` with contents-write permission. The registry is available publicly only after that deployment succeeds.
+CI checks formatting, lint, file naming, types, the latest commit message, website/registry build, Vitest tests, the library build, and production dependency advisories. The existing GitHub Pages workflow deploys `docs/dist` after merging to `master`, using GitHub's official Pages artifact deployment with scoped Pages/OIDC permissions. The registry is available publicly only after that deployment succeeds.
 
 ## Install from npm
 
