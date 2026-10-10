@@ -2,6 +2,8 @@ import { JSX } from 'react';
 import type { UniqueIdentifier } from '@dnd-kit/abstract';
 import { ActionProps, BadgeProps } from './components';
 
+export type TreeMode = 'reorder' | 'tree' | 'explorer';
+
 export type BaseTreeItem = {
   id: UniqueIdentifier;
   collapsed?: boolean;
@@ -26,7 +28,13 @@ export type FlattenedItem<T extends object = {}> = TreeItem<T> & {
 };
 
 export type SensorContext<T extends FlattenedItem> = {
-  current: { items: T[]; canHaveChildren?: (item: T) => boolean; reveal?: (index: number) => Promise<void> };
+  current: {
+    mode?: TreeMode;
+    rootId?: UniqueIdentifier;
+    items: T[];
+    canHaveChildren?: (item: T) => boolean;
+    reveal?: (index: number) => Promise<void>;
+  };
 };
 
 export type ProjectedType = {

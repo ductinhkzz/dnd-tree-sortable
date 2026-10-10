@@ -411,7 +411,7 @@ test('keyboard drag mounts an offscreen target and preserves source registration
       mode='explorer'
       height={240}
       onItemsChange={changed}
-      defaultItems={Array.from({ length: 1000 }, (_, id) => ({ id, kind: 'file', children: [] }))}
+      defaultItems={Array.from({ length: 1000 }, (_, id) => ({ id, kind: 'folder', children: [] }))}
     />,
   );
   const user = userEvent.setup();
@@ -419,10 +419,11 @@ test('keyboard drag mounts an offscreen target and preserves source registration
   await user.keyboard('[End]');
   screen.getByRole('button', { name: 'Drag 999' }).focus();
   await user.keyboard('[Space][ArrowUp]');
-  await waitFor(() => expect(screen.queryByText('999 was moved after 997.')).not.toBeNull());
+  await waitFor(() => expect(screen.queryByText('999 will move into 998.')).not.toBeNull());
   await user.keyboard('[Space]');
   await waitFor(() => expect(changed).toHaveBeenCalled());
-  expect(changed.mock.calls[0][0].slice(-2).map((item: TreeItem) => item.id)).toEqual([999, 998]);
+  expect(changed.mock.calls[0][0].at(-1)?.id).toBe(998);
+  expect(changed.mock.calls[0][0].at(-1)?.children[0].id).toBe(999);
 });
 
 test('Explorer expands a collapsed drop target after hovering and cancels safely', async () => {
@@ -487,4 +488,95 @@ test('pointer drag keeps its virtual source mounted while scrolling to distant r
   await waitFor(() => expect(changed).toHaveBeenCalled());
   const order = changed.mock.calls[0][0].map((item) => item.id);
   expect(order.indexOf(0)).toBe(order.indexOf(55) + 1);
+});
+
+test('Reorder mode skips descendants and never changes the dragged node parent', async () => {
+  const changed = vi.fn<(items: TreeItem[]) => void>();
+  render(
+    <SortableTree
+      mode='reorder'
+      onItemsChange={changed}
+      defaultItems={[
+        { id: 'first', children: [{ id: 'nested', children: [] }] },
+        { id: 'second', children: [] },
+      ]}
+    />,
+  );
+  const user = userEvent.setup();
+  screen.getByRole('button', { name: 'Drag second' }).focus();
+  await user.keyboard('[Space][ArrowLeft][ArrowRight][ArrowUp]');
+  await waitFor(() => expect(screen.queryByText('second was moved before first.')).not.toBeNull());
+  await user.keyboard('[Space]');
+  await waitFor(() => expect(changed).toHaveBeenCalled());
+  expect(changed.mock.calls[0][0].map((item) => item.id)).toEqual(['second', 'first']);
+  expect(changed.mock.calls[0][0][1].children[0].id).toBe('nested');
+});
+
+test('Folder mode ignores sibling drops and moves into an empty folder without horizontal dragging', async () => {
+  const changed = vi.fn<(items: TreeItem[]) => void>();
+  render(
+    <SortableTree
+      mode='explorer'
+      onItemsChange={changed}
+      defaultItems={[
+        { id: 'first', kind: 'file', children: [] },
+        { id: 'second', kind: 'file', children: [] },
+        { id: 'folder', kind: 'folder', children: [] },
+      ]}
+    />,
+  );
+  const user = userEvent.setup();
+  const row = screen.getByRole('treeitem', { name: 'first' });
+  row.focus();
+  await user.keyboard('{Alt>}m{/Alt}[Space][ArrowDown]');
+  await waitFor(() => expect(screen.queryByText('first will move into folder.')).not.toBeNull());
+  expect(
+    screen.getByRole('treeitem', { name: 'folder' }).querySelector('[data-drop-destination="inside"]'),
+  ).not.toBeNull();
+  expect(document.querySelector('[data-drop-indicator]')).toBeNull();
+  await user.keyboard('[Space]');
+  await waitFor(() => expect(changed).toHaveBeenCalled());
+  expect(changed.mock.calls[0][0]).toEqual([
+    { id: 'second', kind: 'file', children: [] },
+    { id: 'folder', kind: 'folder', collapsed: false, children: [{ id: 'first', kind: 'file', children: [] }] },
+  ]);
+});
+
+test('Folder mode Left moves a file to workspace root, preserving existing sibling order', async () => {
+  const changed = vi.fn<(items: TreeItem[]) => void>();
+  render(
+    <SortableTree
+      mode='explorer'
+      onItemsChange={changed}
+      defaultItems={[
+        { id: 'folder', kind: 'folder', children: [{ id: 0, kind: 'file', children: [] }] },
+        { id: 'last', kind: 'file', children: [] },
+      ]}
+    />,
+  );
+  const user = userEvent.setup();
+  screen.getByRole('button', { name: 'Drag 0' }).focus();
+  await user.keyboard('[Space][ArrowLeft]');
+  await waitFor(() => expect(screen.queryByText('0 will move into workspace root.')).not.toBeNull());
+  await user.keyboard('[Space]');
+  await waitFor(() => expect(changed).toHaveBeenCalled());
+  expect(changed.mock.calls[0][0].map((item) => item.id)).toEqual(['folder', 'last', 0]);
+  expect(document.activeElement).toBe(screen.getByRole('treeitem', { name: '0' }));
+});
+
+test('Folder trees enter at the selected row and exclude action buttons from the tab sequence', () => {
+  const { container } = render(
+    <SortableTree
+      mode='explorer'
+      selectedId='second'
+      removable
+      defaultItems={[
+        { id: 'first', kind: 'file', children: [] },
+        { id: 'second', kind: 'file', children: [] },
+      ]}
+    />,
+  );
+  expect(screen.getByRole('treeitem', { name: 'second' }).tabIndex).toBe(0);
+  expect(screen.getByRole('treeitem', { name: 'first' }).tabIndex).toBe(-1);
+  expect([...container.querySelectorAll('button')].every((button) => button.tabIndex === -1)).toBe(true);
 });

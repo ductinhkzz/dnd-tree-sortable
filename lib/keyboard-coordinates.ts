@@ -17,9 +17,10 @@ export function createTreeKeyboardSensor<T extends object>(
       const { source, target, position } = this.manager.dragOperation;
       if (!source) return;
       event.preventDefault();
-      const { items } = context.current;
+      const { items, mode = 'tree', rootId } = context.current;
       const overId = target?.id ?? source.id;
-      if (direction === 'left' || direction === 'right') {
+      if ((direction === 'left' || direction === 'right') && !(mode === 'explorer' && direction === 'left')) {
+        if (mode !== 'tree') return;
         const projection = getProjection(
           items,
           source.id,
@@ -38,23 +39,36 @@ export function createTreeKeyboardSensor<T extends object>(
         }
         return;
       }
-      const index = items.findIndex(({ id }) => id === overId);
-      const next = items[index + (direction === 'up' ? -1 : 1)];
-      if (!next) return;
-      const nextIndex = index + (direction === 'up' ? -1 : 1);
+      const sourceItem = items.find((item) => item.id === source.id);
+      if (!sourceItem) return;
+      const currentIndex = items.findIndex((item) => item.id === overId);
+      let nextId: typeof source.id | undefined;
+      if (mode === 'explorer' && direction === 'left') nextId = rootId;
+      else if (mode === 'explorer') {
+        const folders = items.filter((item) => item.id !== source.id && context.current.canHaveChildren?.(item));
+        if (overId === rootId) nextId = direction === 'down' ? folders[0]?.id : undefined;
+        else if (direction === 'down') nextId = folders.find((item) => items.indexOf(item) > currentIndex)?.id;
+        else nextId = [...folders].reverse().find((item) => items.indexOf(item) < currentIndex)?.id ?? rootId;
+      } else {
+        const candidates = mode === 'reorder' ? items.filter((item) => item.parentId === sourceItem.parentId) : items;
+        const index = candidates.findIndex((item) => item.id === overId);
+        nextId = candidates[index + (direction === 'up' ? -1 : 1)]?.id;
+      }
+      if (nextId === undefined) return;
+      const nextIndex = items.findIndex((item) => item.id === nextId);
       const activatorEvent = this.manager.dragOperation.activatorEvent;
       const currentTop = (target?.element ?? source.element)?.getBoundingClientRect().top;
       void (async () => {
-        await context.current.reveal?.(nextIndex);
+        if (nextIndex >= 0) await context.current.reveal?.(nextIndex);
         // A scroll/mount can finish after Escape or a controlled data update.
         if (
           this.manager.dragOperation.source?.id !== source.id ||
           this.manager.dragOperation.activatorEvent !== activatorEvent
         )
           return;
-        const element = this.manager.registry.droppables.get(next.id)?.element;
+        const element = this.manager.registry.droppables.get(nextId)?.element;
         if (!element) return;
-        await this.manager.actions.setDropTarget(next.id);
+        await this.manager.actions.setDropTarget(nextId);
         this.manager.actions.move({ event, by: { x: 0, y: element.getBoundingClientRect().top - (currentTop ?? 0) } });
         element.scrollIntoView?.({ block: 'nearest' });
       })();

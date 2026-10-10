@@ -12,21 +12,21 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import {
   buildTree,
   flattenTree,
-  getProjection,
   getChildCount,
   removeItem,
   removeChildrenOf,
   setProperty,
-  moveTreeItem,
   getAnnouncement,
 } from './utilities';
-import type { FlattenedItem, SensorContext, TreeItem } from './types';
+import { getTreeProjection, moveTreeNode } from './tree-moves';
+import { TreeRootDropZone } from './tree-root-drop-zone';
+import type { FlattenedItem, SensorContext, TreeItem, TreeMode } from './types';
 import { createTreeKeyboardSensor } from './keyboard-coordinates';
 import { SortableTreeItem, SortableTreeItemProps, TreeItem as TreeItemRow } from './components';
 
 export interface SortableTreeProps<T extends object> {
-  /** Explorer enables file/folder semantics and single selection. */
-  mode?: 'tree' | 'explorer';
+  /** Reorder: siblings only. Tree: reorder and nesting. Explorer: folder moves only. */
+  mode?: TreeMode;
   /** Automatically virtualize at 200 visible rows; false opts out. */
   virtualize?: boolean | { threshold?: number; estimateSize?: number; overscan?: number };
   selectedId?: UniqueIdentifier | null;
@@ -83,6 +83,7 @@ export const SortableTree = <T extends object = {}>({
   const explorer = mode === 'explorer';
   const containerRef = useRef<HTMLDivElement>(null);
   const treeId = useId();
+  const rootDropId = `${treeId}-root`;
   const [selectedId, setSelectedId] = useState<UniqueIdentifier | null>(null);
   const [focusedId, setFocusedId] = useState<UniqueIdentifier | null>(null);
   const [keyboardIndex, setKeyboardIndex] = useState<number | null>(null);
@@ -109,7 +110,7 @@ export const SortableTree = <T extends object = {}>({
   const activeIndex = flattenedItems.findIndex((item) => item.id === activeId);
   const focusedIndex = Math.max(
     0,
-    flattenedItems.findIndex((item) => item.id === focusedId),
+    flattenedItems.findIndex((item) => item.id === (focusedId ?? controlledSelectedId ?? selectedId)),
   );
   const virtualOptions = typeof virtualize === 'object' ? virtualize : {};
   const virtualEnabled =
@@ -120,10 +121,11 @@ export const SortableTree = <T extends object = {}>({
     enabled: virtualEnabled,
     getScrollElement: () =>
       containerRef.current?.querySelector<HTMLDivElement>('[data-slot="scroll-area-viewport"]') ?? null,
-    estimateSize: () => virtualOptions.estimateSize ?? 46,
+    estimateSize: () => virtualOptions.estimateSize ?? (explorer ? 36 : 46),
     getItemKey: (index) => `${typeof flattenedItems[index].id}:${flattenedItems[index].id}`,
     overscan: virtualOptions.overscan ?? 8,
     paddingStart: 8,
+    scrollMargin: explorer ? 40 : 0,
     paddingEnd: 8,
     gap: 2,
     initialRect: { width: 300, height: typeof height === 'number' ? height : 400 },
@@ -156,7 +158,7 @@ export const SortableTree = <T extends object = {}>({
       row.scrollIntoView?.({ block: 'nearest' });
       focusPending.current = false;
     }
-  }, [focusedIndex, focusedId]);
+  }, [focusedIndex, focusedId, activeId]);
   // Explicit hierarchy metadata is required when virtualized siblings are absent from the DOM.
   const siblingCounts = useMemo(() => {
     const counts = new Map<UniqueIdentifier | null, number>();
@@ -166,17 +168,33 @@ export const SortableTree = <T extends object = {}>({
 
   const projected = useMemo(() => {
     if (activeId !== null && overId !== null) {
-      return getProjection(flattenedItems, activeId, overId, offsetLeft, indentationWidth, canHaveChildren);
+      return getTreeProjection(
+        flattenedItems,
+        activeId,
+        overId,
+        offsetLeft,
+        indentationWidth,
+        mode,
+        rootDropId,
+        canHaveChildren,
+      );
     }
     return null;
-  }, [activeId, flattenedItems, indentationWidth, offsetLeft, overId, canHaveChildren]);
+  }, [activeId, flattenedItems, indentationWidth, offsetLeft, overId, canHaveChildren, mode, rootDropId]);
 
   const sensorContext: SensorContext<FlattenedItem<T>> = useRef({
     items: flattenedItems,
   });
   const sensors = useMemo(
     // oxlint-disable-next-line react/refs -- This factory reads the ref only from sensor event handlers.
-    () => [PointerSensor, createTreeKeyboardSensor(sensorContext, indentationWidth)],
+    () => [
+      PointerSensor.configure({
+        activatorElements: (source) => [
+          (sensorContext.current.mode === 'explorer' ? source.element : source.handle) ?? undefined,
+        ],
+      }),
+      createTreeKeyboardSensor(sensorContext, indentationWidth),
+    ],
     [sensorContext, indentationWidth],
   );
 
@@ -187,11 +205,13 @@ export const SortableTree = <T extends object = {}>({
 
   useEffect(() => {
     sensorContext.current = {
+      mode,
+      rootId: rootDropId,
       items: flattenedItems,
       canHaveChildren,
       reveal,
     };
-  }, [flattenedItems, canHaveChildren, reveal]);
+  }, [flattenedItems, canHaveChildren, reveal, mode, rootDropId]);
 
   const handleDragStart = useCallback(
     ({ operation: { source } }: Parameters<DragDropEventHandlers['onDragStart']>[0]) => {
@@ -226,22 +246,28 @@ export const SortableTree = <T extends object = {}>({
 
   const handleDragEnd = useCallback(
     ({ operation: { source, target, position }, canceled }: Parameters<DragDropEventHandlers['onDragEnd']>[0]) => {
+      if (explorer && source) {
+        focusPending.current = true;
+        setFocusedId(source.id);
+      }
       resetState();
 
       if (canceled || !source || !target) return;
-      const result = moveTreeItem(
+      const result = moveTreeNode(
         items,
         source.id,
         target.id,
         position.current.x - position.initial.x,
         indentationWidth,
+        mode,
+        rootDropId,
         canHaveChildren,
       );
       if (!result) return;
       onChange?.(result.before, result.after);
       updateItems(result.items);
     },
-    [items, indentationWidth, onChange, resetState, updateItems, canHaveChildren],
+    [items, indentationWidth, onChange, resetState, updateItems, canHaveChildren, mode, rootDropId, explorer],
   );
 
   const handleRemove = useCallback(
@@ -259,15 +285,16 @@ export const SortableTree = <T extends object = {}>({
     [items, updateItems],
   );
 
+  const destinationId = projected?.parentId;
   useEffect(() => {
     if (!explorer || activeId === null || overId === null || activeId === overId) return;
-    const folder = flattenedItems.find((item) => item.id === overId);
+    const folder = flattenedItems.find((item) => item.id === destinationId);
     if (!folder?.collapsed || !canHaveChildren(folder)) return;
     const timer = setTimeout(() => {
       updateItems(setProperty(items, folder.id, 'collapsed', () => false as TreeItem<T>['collapsed']));
     }, 700);
     return () => clearTimeout(timer);
-  }, [explorer, activeId, overId, flattenedItems, canHaveChildren, items, updateItems]);
+  }, [explorer, activeId, overId, destinationId, flattenedItems, canHaveChildren, items, updateItems]);
 
   function selectItem(item: FlattenedItem<T>) {
     setFocusedId(item.id);
@@ -282,8 +309,13 @@ export const SortableTree = <T extends object = {}>({
     void reveal(index);
   }
   function handleExplorerKey(event: KeyboardEvent<HTMLLIElement>, item: FlattenedItem<T>, index: number) {
-    if (event.target !== event.currentTarget || activeId !== null || event.altKey || event.ctrlKey || event.metaKey)
+    if (event.target !== event.currentTarget || activeId !== null) return;
+    if (event.altKey && event.key.toLowerCase() === 'm') {
+      event.preventDefault();
+      event.currentTarget.querySelector<HTMLButtonElement>('[data-tree-handle]')?.focus();
       return;
+    }
+    if (event.altKey || event.ctrlKey || event.metaKey) return;
     switch (event.key) {
       case 'ArrowDown':
         event.preventDefault();
@@ -312,6 +344,12 @@ export const SortableTree = <T extends object = {}>({
         event.preventDefault();
         if (canHaveChildren(item) && !item.collapsed) handleCollapse(item.id);
         else if (item.parentId !== null) navigateTo(flattenedItems.findIndex((node) => node.id === item.parentId));
+        break;
+      case 'Delete':
+        if (removable) {
+          event.preventDefault();
+          handleRemove(item.id);
+        }
         break;
       case 'Enter':
         event.preventDefault();
@@ -347,13 +385,35 @@ export const SortableTree = <T extends object = {}>({
       if (!source || !target) return;
       const offset = (event.to?.x ?? position.current.x + (event.by?.x ?? 0)) - position.initial.x;
       const visibleItems = sensorContext.current.items;
-      const projection = getProjection(visibleItems, source.id, target.id, offset, indentationWidth, canHaveChildren);
+      const projection = getTreeProjection(
+        visibleItems,
+        source.id,
+        target.id,
+        offset,
+        indentationWidth,
+        mode,
+        rootDropId,
+        canHaveChildren,
+      );
+      if (explorer) {
+        if (!projection) return `Choose a different folder for ${source.id}.`;
+        const destination =
+          projection.parentId === null
+            ? 'workspace root'
+            : (visibleItems.find((item) => item.id === projection.parentId)?.label ?? projection.parentId);
+        return `${source.id} ${eventName === 'onDragEnd' ? 'was moved' : 'will move'} into ${destination}.`;
+      }
       return projection
         ? getAnnouncement(eventName, target.id, source.id, buildTree(visibleItems), projection)
         : undefined;
     },
-    [sensorContext, indentationWidth, canHaveChildren],
+    [sensorContext, indentationWidth, canHaveChildren, mode, rootDropId, explorer],
   );
+  const dragInstructions = explorer
+    ? 'Press Space or Enter to pick up. Up and down arrows choose a folder; Left chooses workspace root. Space or Enter drops, Escape cancels.'
+    : mode === 'reorder'
+      ? 'Press Space or Enter to pick up. Up and down arrows reorder siblings. Space or Enter drops, Escape cancels.'
+      : 'Press Space or Enter to pick up. Up and down arrows move, left and right arrows change nesting. Space or Enter drops, Escape cancels.';
   const plugins = useMemo(
     () => (defaults: Plugins<DragDropManager>) =>
       defaults.map((plugin) =>
@@ -361,18 +421,18 @@ export const SortableTree = <T extends object = {}>({
           ? {
               plugin: Accessibility,
               options: {
+                debounce: 100,
                 screenReaderInstructions: {
-                  draggable:
-                    'Press Space or Enter to pick up. Use up and down arrows to move, left and right arrows to change nesting. Press Space or Enter to drop, Escape to cancel.',
+                  draggable: dragInstructions,
                 },
                 announcements: {
                   dragstart: ({ operation: { source } }: Parameters<DragDropEventHandlers['onDragStart']>[0]) =>
                     source ? `Picked up ${source.id}.` : undefined,
                   dragmove: (
                     event: Pick<Parameters<DragDropEventHandlers['onDragMove']>[0], 'operation' | 'to' | 'by'>,
-                  ) => getMovementAnnouncement('onDragMove', event),
+                  ) => (explorer ? undefined : getMovementAnnouncement('onDragMove', event)),
                   dragover: (event: Parameters<DragDropEventHandlers['onDragOver']>[0]) =>
-                    getMovementAnnouncement('onDragOver', event),
+                    explorer ? undefined : getMovementAnnouncement('onDragOver', event),
                   dragend: (event: Parameters<DragDropEventHandlers['onDragEnd']>[0]) =>
                     event.canceled
                       ? `Moving was cancelled. ${event.operation.source?.id} was dropped in its original position.`
@@ -382,7 +442,7 @@ export const SortableTree = <T extends object = {}>({
             }
           : plugin,
       ),
-    [getMovementAnnouncement],
+    [getMovementAnnouncement, dragInstructions, explorer],
   );
 
   const renderItem = (index: number, item: FlattenedItem<T>, start?: number) => {
@@ -393,6 +453,8 @@ export const SortableTree = <T extends object = {}>({
         id={id}
         explorer={explorer}
         folder={canHaveChildren(item)}
+        dropDestination={explorer && activeId !== null && id === projected?.parentId}
+        dragInstructions={dragInstructions}
         selected={explorer && id === (controlledSelectedId === undefined ? selectedId : controlledSelectedId)}
         data-index={index}
         wrapperRef={virtualEnabled ? virtualizer.measureElement : undefined}
@@ -400,6 +462,7 @@ export const SortableTree = <T extends object = {}>({
         {...(explorer
           ? {
               role: 'treeitem',
+              'aria-keyshortcuts': 'Alt+M',
               'aria-label': item.label ?? String(id),
               'aria-level': depth + 1,
               'aria-posinset': item.index + 1,
@@ -424,11 +487,11 @@ export const SortableTree = <T extends object = {}>({
           : {})}
         index={index}
         value={item}
-        depth={id === activeId && projected ? projected.depth : depth}
+        depth={!explorer && id === activeId && projected ? projected.depth : depth}
         indentationWidth={indentationWidth}
-        indicator={indicator}
+        indicator={indicator && !explorer}
         dropPosition={
-          indicator && activeId !== null && id === overId && projected
+          !explorer && indicator && activeId !== null && id === overId && projected
             ? index <= flattenedItems.findIndex((item) => item.id === activeId)
               ? 'before'
               : 'after'
@@ -480,11 +543,27 @@ export const SortableTree = <T extends object = {}>({
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
+      {explorer && (
+        <output aria-live='polite' aria-atomic='true' className='sr-only'>
+          {activeId !== null && overId !== null && activeId !== overId
+            ? projected
+              ? `${activeId} will move into ${projected.parentId === null ? 'workspace root' : (flattenedItems.find((item) => item.id === projected.parentId)?.label ?? projected.parentId)}.`
+              : `Choose a different folder for ${activeId}.`
+            : ''}
+        </output>
+      )}
       <div ref={containerRef}>
         <ScrollArea
           className={cn('box-border rounded-lg border border-border bg-background text-foreground', className)}
           style={{ height }}
         >
+          {explorer && (
+            <TreeRootDropZone
+              id={rootDropId}
+              active={activeId !== null && projected?.parentId === null}
+              dragging={activeId !== null}
+            />
+          )}
           {flattenedItems.length ? (
             <ul
               aria-label={ariaLabel}
@@ -496,7 +575,7 @@ export const SortableTree = <T extends object = {}>({
               {virtualEnabled
                 ? virtualizer
                     .getVirtualItems()
-                    .map((row) => renderItem(row.index, flattenedItems[row.index], row.start))
+                    .map((row) => renderItem(row.index, flattenedItems[row.index], row.start - (explorer ? 40 : 0)))
                 : flattenedItems.map((item, index) => renderItem(index, item))}
             </ul>
           ) : (

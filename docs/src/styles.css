@@ -2,6 +2,12 @@
 @import 'tw-animate-css';
 @import '../../lib/theme.css';
 @source '../../lib';
+@layer base {
+  * {
+    @apply border-border;
+  }
+}
+
 @custom-variant dark (&:where(.dark, .dark *, [data-theme='dark'], [data-theme='dark'] *));
 
 * {
@@ -243,6 +249,20 @@ h2 {
   color: var(--muted-foreground);
   font-size: 11px;
 }
+.example-toolbar {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.example-toolbar p {
+  margin: 12px 0 0;
+  font-size: 12px;
+}
+.tree-status {
+  display: block;
+  margin-top: 8px;
+  color: var(--foreground);
+  font-size: 12px;
+}
 .demo-layout {
   display: grid;
   grid-template-columns: 1fr 285px;
@@ -279,6 +299,9 @@ h3 {
 aside p {
   font-size: 12px;
   margin-bottom: 30px;
+}
+aside label[hidden] {
+  display: none;
 }
 aside label {
   display: flex;

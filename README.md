@@ -65,6 +65,7 @@ For uncontrolled use, pass `defaultItems` instead of `items`. `defaultItems` is 
 
 | Prop                | Purpose                                                       | Default           |
 | ------------------- | ------------------------------------------------------------- | ----------------- |
+| `mode`              | `reorder`, `tree`, or `explorer` movement rules               | `tree`            |
 | `items`             | Controlled tree data                                          | —                 |
 | `defaultItems`      | Initial uncontrolled tree                                     | `[]`              |
 | `onItemsChange`     | Receives the updated full tree                                | —                 |
@@ -75,15 +76,23 @@ For uncontrolled use, pass `defaultItems` instead of `items`. `defaultItems` is 
 | `indentationWidth`  | Pixels per nesting level                                      | `24`              |
 | `collapsible`       | Show collapse controls                                        | `false`           |
 | `removable`         | Show removal controls                                         | `false`           |
-| `indicator`         | Show a stable drop marker on the target row                   | `false`           |
+| `indicator`         | Show a drop marker in reorder/tree modes                      | `false`           |
 | `components`        | Replace Handle, Collapse, Remove, ItemContent, or Badge       | Built-in controls |
 | `renderItemContent` | Replace the whole row; forward supplied refs and handle props | Built-in row      |
 | `onChange`          | Legacy callback with the moved item's before/after position   | —                 |
 | `onRemove`          | Receives the removed ID                                       | —                 |
 
-Focus a drag handle and press Space to pick up an item. Use Up/Down to reorder, Left/Right to change nesting, Space to drop, and Escape to cancel. All expanded rows are rendered. Keyboard movement follows the visible list and scrolls the target into view.
+Choose a movement mode for your use case:
 
-The component uses semantic utilities such as `bg-background`, `text-foreground`, `bg-accent`, and `ring-ring`. It inherits the consumer's light/dark theme, border radius, and color tokens. Controls have visible keyboard focus, item-specific labels, expanded state, and decorative icons hidden from assistive technology. The container uses a labeled list rather than claiming an ARIA tree widget with unsupported navigation semantics. `Action` uses the native button with shadcn `buttonVariants` so handle refs work on both React 18 and React 19.
+| Mode             | Behavior                                                                                          |
+| ---------------- | ------------------------------------------------------------------------------------------------- |
+| `reorder`        | Reorder siblings; the parent stays fixed.                                                         |
+| `tree` (default) | Reorder and change nesting, including ancestor moves.                                             |
+| `explorer`       | Move files/folders into a different folder or workspace root; existing sibling order stays fixed. |
+
+Focus a drag handle and press Space or Enter to pick up. Up/Down chooses a target, Space/Enter drops, and Escape cancels. Left/Right changes nesting in `tree` mode; horizontal arrows have no effect in `reorder` mode. Keyboard targets scroll into view.
+
+The component uses semantic utilities such as `bg-background`, `text-foreground`, `bg-accent`, and `ring-ring`. It inherits the consumer's light/dark theme, border radius, and color tokens. Controls have visible keyboard focus, item-specific labels, expanded state, and decorative icons hidden from assistive technology. Reorder and hierarchy use a labeled list; Explorer uses tree/treeitem roles, hierarchy metadata, and a single row tab stop with arrow-key navigation. `Action` uses the native button with shadcn `buttonVariants` so handle refs work on both React 18 and React 19.
 
 Virtuoso and CSS Modules have been removed. Large trees now use TanStack Virtual inside the shadcn ScrollArea; small trees render all expanded nodes. The npm stylesheet compiles the same Tailwind classes without adding a global preflight reset. Registry consumers use their existing Tailwind pipeline and do not import that stylesheet.
 
@@ -100,13 +109,13 @@ Use `mode="explorer"` for folder/file icons, single selection, click-to-toggle f
   ]}
   onSelect={(item) => console.log('Select', item.id)}
   onOpen={(file) => console.log('Open', file.id)}
-  virtualize={{ threshold: 200, estimateSize: 46, overscan: 8 }}
+  virtualize={{ threshold: 200, estimateSize: 36, overscan: 8 }}
 />
 ```
 
-`selectedId` controls selection; update it from `onSelect`. `items`/`onItemsChange` continue to control tree structure. Opening a file calls `onOpen`; the host application supplies its editor or preview. Rename/create and multi-selection are outside this first Explorer implementation. Use the existing drag handle for Space/Enter pickup and arrow-key reordering; row arrow keys navigate the Explorer.
+`selectedId` controls selection; update it from `onSelect`. `items`/`onItemsChange` continue to control tree structure. Opening a file calls `onOpen`; the host application supplies its editor or preview. Rename/create and multi-selection are outside this first Explorer implementation. Folder rows use a borderless Explorer layout, colored file-type icons, and a rounded selection highlight. Drag the row to move it; Alt+M reveals and focuses the keyboard move handle. Space/Enter picks up, Up/Down chooses a folder, and Left chooses workspace root. Row arrow keys navigate the Explorer. Folder drops append to the destination and expand it; dropping into the current parent does nothing. Files cannot receive children and folders cannot move into their own descendants.
 
-Virtualization activates automatically at **200 visible nodes** in both modes, so collapsed descendants do not count. Set `virtualize={true}` to always virtualize or `virtualize={false}` to render every visible row. Rows are measured for custom heights. Focused rows and drag sources stay mounted; keyboard targets are revealed before the drag moves. Custom `renderItemContent` implementations must forward `wrapperRef`, `wrapperStyle`, `data-index`, and the supplied accessibility/event props to the outer row (the built-in row does this). The playground includes Sortable, Explorer, and 1,000-file examples.
+Virtualization activates automatically at **200 visible nodes** in all modes, so collapsed descendants do not count. Set `virtualize={true}` to always virtualize or `virtualize={false}` to render every visible row. Rows are measured for custom heights. Focused rows and drag sources stay mounted; keyboard targets are revealed before the drag moves. Custom `renderItemContent` implementations must forward `wrapperRef`, `wrapperStyle`, `data-index`, and the supplied accessibility/event props to the outer row (the built-in row does this). The playground includes Reorder, Hierarchy, Folders, and 1,000-file examples.
 
 ## Develop and build
 

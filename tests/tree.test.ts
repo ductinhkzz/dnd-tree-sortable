@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
+import { getTreeProjection, moveTreeNode } from '../lib/tree-moves';
 import type { TreeItem } from '../lib/types';
 import {
   buildTree,
@@ -144,4 +145,49 @@ test('Explorer projections prevent files from receiving children while empty fol
   const folderItems: TreeItem[] = [{ id: 'folder', kind: 'folder', children: [] }, leafItems[1]];
   const result = moveTreeItem(folderItems, 'source', 'source', 24, 24, foldersOnly);
   assert.equal(result?.items[0].children[0].id, 'source');
+});
+
+test('Reorder preserves every parent and subtree, including drops onto expanded siblings', () => {
+  const items: TreeItem[] = [
+    { id: 'folder', children: [{ id: 'child', children: [] }] },
+    { id: 'source', children: [{ id: 'subtree', children: [] }] },
+  ];
+  const result = moveTreeNode(items, 'source', 'folder', 100, 24, 'reorder', 'root-zone', () => true);
+  assert.deepEqual(
+    result?.items.map((item) => item.id),
+    ['source', 'folder'],
+  );
+  assert.equal(result?.items[0].children[0].id, 'subtree');
+  assert.equal(result?.items[1].children[0].id, 'child');
+  assert.equal(
+    moveTreeNode(items, 'source', 'child', 0, 24, 'reorder', 'root-zone', () => true),
+    null,
+  );
+});
+
+test('Folder moves reject sibling reorder, self and descendant targets and append only to a new parent', () => {
+  const items: TreeItem[] = [
+    { id: 'source', kind: 'folder', children: [{ id: 'child', kind: 'folder', children: [] }] },
+    { id: 'target', kind: 'folder', children: [{ id: 'existing', kind: 'file', children: [] }] },
+    { id: 0, kind: 'file', children: [] },
+  ];
+  const original = structuredClone(items);
+  const folders = (item: TreeItem) => item.kind === 'folder';
+  for (const target of ['source', 'child', 0, 'root-zone', 'missing']) {
+    assert.equal(moveTreeNode(items, 'source', target, 0, 24, 'explorer', 'root-zone', folders), null);
+  }
+  const result = moveTreeNode(items, 'source', 'existing', 0, 24, 'explorer', 'root-zone', folders);
+  assert.deepEqual(
+    result?.items.map((item) => item.id),
+    ['target', 0],
+  );
+  assert.deepEqual(
+    result?.items[0].children.map((item) => item.id),
+    ['existing', 'source'],
+  );
+  assert.equal(result?.items[0].children[1].children[0].id, 'child');
+  assert.equal(result?.after.depth, 1);
+  assert.equal(result?.after.index, 1);
+  assert.deepEqual(items, original);
+  assert.equal(getTreeProjection(flattenTree(items), 0, 'missing', 0, 24, 'explorer', 'root-zone', folders), null);
 });

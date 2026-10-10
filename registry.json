@@ -114,6 +114,16 @@
           "path": "lib/utilities.ts",
           "type": "registry:file",
           "target": "@components/dnd-tree-sortable/utilities.ts"
+        },
+        {
+          "path": "lib/tree-moves.ts",
+          "type": "registry:file",
+          "target": "@components/dnd-tree-sortable/tree-moves.ts"
+        },
+        {
+          "path": "lib/tree-root-drop-zone.tsx",
+          "type": "registry:file",
+          "target": "@components/dnd-tree-sortable/tree-root-drop-zone.tsx"
         }
       ],
       "registryDependencies": ["scroll-area", "button", "badge"]
