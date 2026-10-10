@@ -11,7 +11,7 @@ A shadcn registry for a React drag-and-drop tree using ScrollArea and Tailwind C
 
 ## Install from the registry
 
-Use a React 18.3 or React 19 project initialized with [shadcn/ui](https://ui.shadcn.com/docs/installation), with Tailwind CSS 4 and shadcn theme tokens configured. Once this rework is deployed to GitHub Pages:
+Use a React 18.3 or React 19 project initialized with [shadcn/ui](https://ui.shadcn.com/docs/installation), with Tailwind CSS 4 and shadcn theme tokens configured. Install from the hosted registry:
 
 ```sh
 pnpm dlx shadcn@latest add https://ductinhkzz.github.io/dnd-tree-sortable/r/sortable-tree.json
@@ -182,7 +182,7 @@ CI checks formatting, lint, file naming, types, the latest commit message, websi
 
 ## Install from npm
 
-Version 2.0.0 is being prepared locally; npm currently serves 1.0.3. After the new release is published, install it with:
+Install the npm library:
 
 ```sh
 pnpm add dnd-tree-sortable@^2 react react-dom
