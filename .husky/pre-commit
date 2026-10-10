@@ -1,2 +1,1 @@
-yarn lint
-yarn format
+pnpm run format:check && pnpm run lint && pnpm run typecheck

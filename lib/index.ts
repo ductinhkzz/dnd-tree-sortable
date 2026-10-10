@@ -1,4 +1,6 @@
-export { SortableTree } from './SortableTree';
-export type { SortableTreeProps } from './SortableTree';
-export type { TreeItem, FlattenedItem, RenderComponentType } from './types';
+export { SortableTree } from './sortable-tree';
+export type { SortableTreeProps } from './sortable-tree';
+export type { TreeMode, LoadChildren, TreeItem, FlattenedItem, RenderComponentType } from './types';
 export type { ActionProps } from './components';
+
+export { Action } from './components/action';

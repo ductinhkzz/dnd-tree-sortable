@@ -1,0 +1,6 @@
+# Exact stable releases selected and validated for this project.
+minimumReleaseAgeExclude:
+  - '@tanstack/react-virtual@3.14.14'
+  - '@tanstack/virtual-core@3.18.0'
+  - '@types/node@26.6.5'
+  - 'lucide-react@1.54.0'

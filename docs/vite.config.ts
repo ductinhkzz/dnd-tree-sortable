@@ -1,23 +1,15 @@
+import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vite';
-import * as path from 'path';
-import react from '@vitejs/plugin-react'; // you can also use @vitejs/plugin-react-swc
-import pages from 'vite-plugin-react-pages';
+import react from '@vitejs/plugin-react';
+import { fileURLToPath, URL } from 'node:url';
 
-export default defineConfig(() => {
-  return {
-    plugins: [
-      react(),
-      pages({
-        pagesDir: path.join(__dirname, 'pages'),
-      }),
-    ],
-    base: process.env.NODE_ENV === 'production' ? 'dnd-tree-sortable' : 'dnd-tree-sortable/docs/dist',
-    resolve: {
-      alias: {
-        'dnd-tree-sortable': path.join(__dirname, '../lib'),
-        react: 'react',
-        'react-dom': 'react-dom',
-      },
+export default defineConfig({
+  resolve: {
+    alias: {
+      'dnd-tree-sortable': fileURLToPath(new URL('../lib', import.meta.url)),
+      '@/components/ui': fileURLToPath(new URL('../lib/components/ui', import.meta.url)),
     },
-  };
+  },
+  plugins: [react(), tailwindcss()],
+  base: '/dnd-tree-sortable/',
 });
