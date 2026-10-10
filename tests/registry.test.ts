@@ -22,7 +22,14 @@ test('registry includes every tree source file with unique, safe installation pa
     )
     .map((path) => `lib/${path}`)
     .sort();
-  assert.deepEqual(files.map((file) => file.path).sort(), sources);
+  assert.deepEqual(
+    files
+      .filter((file) => file.path !== 'LICENSE')
+      .map((file) => file.path)
+      .sort(),
+    sources,
+  );
+  assert.ok(files.some((file) => file.path === 'LICENSE'));
   assert.equal(new Set(files.map((file) => file.target)).size, files.length);
   for (const file of files) {
     assert.match(file.target, /^@components\/dnd-tree-sortable\//);

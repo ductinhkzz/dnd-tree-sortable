@@ -25,4 +25,5 @@ jobs:
       - run: pnpm run build-docs
       - run: pnpm test
       - run: pnpm run build
+      - run: pnpm check:package
       - run: pnpm run audit:production

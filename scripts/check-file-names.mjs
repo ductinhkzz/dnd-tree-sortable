@@ -2,7 +2,7 @@ import { readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 const ignored = new Set(['.git', 'node_modules', 'dist']);
-const conventional = new Set(['README.md']);
+const conventional = new Set(['README.md', 'CHANGELOG.md', 'CONTRIBUTING.md', 'LICENSE']);
 const invalid = [];
 
 function visit(directory) {

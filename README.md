@@ -178,18 +178,24 @@ Test from a disposable, initialized consumer project:
 pnpm dlx shadcn@latest add http://localhost:5173/dnd-tree-sortable/r/sortable-tree.json
 ```
 
-CI checks formatting, lint, file naming, types, the latest commit message, website/registry build, Vitest tests, the library build, and production dependency advisories. The existing GitHub Pages workflow deploys `docs/dist` after merging to `master`, using the repository's existing `ACCESS_TOKEN` secret. The registry is available publicly only after that deployment succeeds.
+CI checks formatting, lint, file naming, types, the latest commit message, website/registry build, Vitest tests, the library build, and production dependency advisories. The existing GitHub Pages workflow deploys `docs/dist` after merging to `master`, using GitHub's `GITHUB_TOKEN` with contents-write permission. The registry is available publicly only after that deployment succeeds.
 
-## Existing npm package
+## Install from npm
 
-The npm library build remains available for existing consumers:
+Version 2.0.0 is being prepared locally; npm currently serves 1.0.3. After the new release is published, install it with:
+
+```sh
+pnpm add dnd-tree-sortable@^2 react react-dom
+```
+
+Import the component and its stylesheet:
 
 ```tsx
 import { SortableTree } from 'dnd-tree-sortable';
 import 'dnd-tree-sortable/dist/assets/style.css';
 ```
 
-The registry flow copies Tailwind-styled source and installs shadcn primitives. The npm flow bundles the local primitive source and provides precompiled CSS; existing consumers keep the stylesheet import above. The existing npm release workflow is retained; this rework does not publish a new npm version.
+The registry flow copies Tailwind-styled source and installs shadcn primitives. The npm flow bundles the local primitive source and provides precompiled CSS; existing consumers keep the stylesheet import above. The release workflow validates the source, packed consumers, and matching version tag before publishing. Packing or building locally does not publish.
 
 ## Credits
 
@@ -202,7 +208,7 @@ Built on the [dnd-kit sortable tree example](https://github.com/clauderic/dnd-ki
 - **Vitest** replaces the Node/tsx test runner. `pnpm test` rebuilds the registry and runs utility, registry, SSR, and React interaction tests; `pnpm run test:watch` watches tests.
 - **commitlint** enforces Conventional Commits through Husky's `commit-msg` hook. Use messages such as `feat: add custom tree rows` or `fix: preserve numeric item ids`. CI checks the newest commit; existing repository history is not rewritten.
 - The pre-commit hook checks formatting, lint, and types. `pnpm run check` runs all project checks.
-- File and folder names use **kebab-case**, enforced by `scripts/check-file-names.mjs`. Standard dotfiles/config extensions and GitHub's conventional `README.md` name are allowed. Component/export names remain PascalCase.
+- File and folder names use **kebab-case**, enforced by `scripts/check-file-names.mjs`. Standard dotfiles/config extensions and the conventional `README.md`, `CHANGELOG.md`, `CONTRIBUTING.md`, and `LICENSE` names are allowed. Component/export names remain PascalCase.
 
 ## Dependency review — October 10, 2026
 
@@ -240,3 +246,19 @@ Custom `components.Handle` implementations receive `elementRef` in `ActionProps`
 - Tests cover tree invariants across reorder/nesting combinations, real ScrollArea and sensor interactions, numeric IDs, custom payloads/handles, controlled updates, cancellation, empty states, and SSR.
 
 `pnpm audit --prod` reports **zero production vulnerabilities**. The full pnpm audit reports **one high-severity development-only advisory** for `braces`, reached through three shadcn dependency paths (`fast-glob`, ts-morph, and @shadcn/registry). This is the same advisory previously reported as seven package-level entries by npm. The installed latest shadcn version still carries them; no forced downgrade or unverified override was applied. Track [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm) and update the CLI when a safe upstream fix is available.
+
+## Migrating from 1.x
+
+The rework targets **2.0.0** because custom rendering and drag integration changed. Keep the public npm import and explicit stylesheet import; reinstall from the registry if you own the copied source.
+
+- Replace classic dnd-kit integrations with the new React/DOM API. Forward `handleProps.elementRef` or custom `ActionProps.elementRef` to the handle button. Custom rows must forward the source `ref`, target `wrapperRef`, `wrapperStyle`, `data-index`, and accessibility/event props.
+- Update CSS Modules overrides to Tailwind classes/shadcn tokens. Registry projects require Tailwind 4; npm projects use the supplied compiled stylesheet and do not need Tailwind.
+- Replace Virtuoso/rc-scrollbars integrations with `virtualize` and the built-in ScrollArea. No Virtuoso instance is exposed.
+- Use controlled `items` with `onItemsChange` for persistence. The positional `onChange` callback remains available but does not report collapse, removal, or lazy loading.
+- Prefer public exports. Internal filenames use kebab-case and deep npm paths are not exported. The npm package is ESM.
+
+## Contributing and releases
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, source conventions, consumer checks, and the release process. [CHANGELOG.md](CHANGELOG.md) tracks the upcoming major release and subsequent changes. Both npm and registry distributions include the [MIT license](LICENSE).
+
+Before releasing, run `pnpm check`, `pnpm check:package`, and `pnpm audit:production`. The registry is self-hosted: deploy `docs/dist` and verify its public installation URL. Registering a namespace in shadcn's public index is optional and separate from serving the registry.

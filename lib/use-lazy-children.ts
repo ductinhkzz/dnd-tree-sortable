@@ -4,6 +4,8 @@ import type { FlattenedItem, LoadChildren, TreeItem } from './types';
 import { flattenTree } from './utilities';
 import { loadTreeChildren } from './load-tree-children';
 
+const useBrowserLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
+
 export type ChildLoadState = 'loading' | 'error' | 'loaded';
 
 export function useLazyChildren<T extends object>(
@@ -16,7 +18,7 @@ export function useLazyChildren<T extends object>(
   const requests = useRef(new Map<UniqueIdentifier, AbortController>());
   const [states, setStates] = useState(new Map<UniqueIdentifier, ChildLoadState>());
   const stateRef = useRef(states);
-  useLayoutEffect(() => {
+  useBrowserLayoutEffect(() => {
     latest.current = { items, loadChildren, updateItems };
     stateRef.current = states;
   }, [items, loadChildren, updateItems, states]);

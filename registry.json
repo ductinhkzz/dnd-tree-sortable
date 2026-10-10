@@ -134,6 +134,11 @@
           "path": "lib/use-lazy-children.ts",
           "type": "registry:file",
           "target": "@components/dnd-tree-sortable/use-lazy-children.ts"
+        },
+        {
+          "path": "LICENSE",
+          "type": "registry:file",
+          "target": "@components/dnd-tree-sortable/LICENSE"
         }
       ],
       "registryDependencies": ["scroll-area", "button", "badge"]
