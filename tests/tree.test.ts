@@ -3,6 +3,7 @@ import { test } from 'vitest';
 import type { TreeItem } from '../lib/types';
 import {
   buildTree,
+  moveTreeItem,
   flattenTree,
   getAnnouncement,
   getProjection,
@@ -70,4 +71,64 @@ test('collapse and removal leave controlled data untouched and preserve function
   assert.equal(removeItem(items, 'child')[0].children.length, 0);
   assert.equal(items[0].children[0], child);
   assert.equal(buildTree(flattenTree(items))[0].render, render);
+});
+
+test('moves ignore stale IDs, descendant targets, unchanged positions, and invalid indentation', () => {
+  const items: TreeItem[] = [
+    { id: 0, children: [{ id: 'child', children: [] }] },
+    { id: 'other', children: [] },
+  ];
+  assert.equal(moveTreeItem(items, 'missing', 'other', 0, 24), null);
+  assert.equal(moveTreeItem(items, 0, 'missing', 0, 24), null);
+  assert.equal(moveTreeItem(items, 0, 'child', 0, 24), null);
+  assert.equal(moveTreeItem(items, 0, 0, 0, 24), null);
+  assert.equal(moveTreeItem(items, 0, 'other', 0, 0), null);
+});
+
+test('all valid reorder/nesting combinations preserve nodes, subtree payloads, and source data', () => {
+  const payload = () => 'preserved';
+  const items: TreeItem<{ payload?: () => string }>[] = [
+    {
+      id: 0,
+      payload,
+      children: [
+        { id: 'a', children: [{ id: 'b', children: [] }] },
+        { id: 'c', children: [] },
+      ],
+    },
+    { id: '0', children: [{ id: 'd', children: [] }] },
+    { id: 'last', children: [] },
+  ];
+  const original = flattenTree(items);
+  const expectedIds = new Set(original.map((item) => item.id));
+  for (const active of original)
+    for (const target of original)
+      for (const offset of [-1000, -24, 0, 24, 1000]) {
+        const result = moveTreeItem(items, active.id, target.id, offset, 24);
+        if (!result) continue;
+        const next = flattenTree(result.items);
+        assert.equal(next.length, original.length);
+        assert.deepEqual(new Set(next.map((item) => item.id)), expectedIds);
+        assert.equal(next.find((item) => item.id === 0)?.payload, payload);
+        assert.deepEqual(
+          result.after,
+          next.find((item) => item.id === active.id),
+        );
+        assert.deepEqual(flattenTree(items), original);
+      }
+});
+
+test('nesting into a collapsed folder expands it so the moved item remains visible', () => {
+  const items: TreeItem[] = [
+    { id: 'folder', collapsed: true, children: [{ id: 'hidden', children: [] }] },
+    { id: 'file', children: [] },
+  ];
+  const result = moveTreeItem(items, 'file', 'file', 24, 24)!;
+  assert.equal(result.items[0].collapsed, false);
+  assert.equal(result.after.parentId, 'folder');
+  assert.equal(items[0].collapsed, true);
+  assert.deepEqual(
+    result.items[0].children.map((item) => item.id),
+    ['hidden', 'file'],
+  );
 });

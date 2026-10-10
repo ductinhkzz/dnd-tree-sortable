@@ -20,13 +20,15 @@ export function createTreeKeyboardSensor<T extends FlattenedItem>(
       const { items } = context.current;
       const overId = target?.id ?? source.id;
       if (direction === 'left' || direction === 'right') {
-        const { depth, minDepth, maxDepth } = getProjection(
+        const projection = getProjection(
           items,
           source.id,
           overId,
           position.current.x - position.initial.x,
           indentationWidth,
         );
+        if (!projection) return;
+        const { depth, minDepth, maxDepth } = projection;
         if ((direction === 'left' && depth > minDepth) || (direction === 'right' && depth < maxDepth)) {
           this.manager.actions.move({
             event,

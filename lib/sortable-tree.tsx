@@ -5,7 +5,8 @@ import { createPortal } from 'react-dom';
 import { DragDropProvider, DragOverlay, type DragDropEventHandlers } from '@dnd-kit/react';
 import { Accessibility, PointerSensor, type DragDropManager } from '@dnd-kit/dom';
 import type { UniqueIdentifier, Plugins } from '@dnd-kit/abstract';
-import { Virtuoso } from 'react-virtuoso';
+import { cn } from 'cn';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 
 import {
   buildTree,
@@ -15,7 +16,7 @@ import {
   removeItem,
   removeChildrenOf,
   setProperty,
-  arrayMove,
+  moveTreeItem,
   getAnnouncement,
 } from './utilities';
 import type { FlattenedItem, SensorContext, TreeItem } from './types';
@@ -32,6 +33,9 @@ export interface SortableTreeProps<T extends object> {
   removable?: boolean;
   components?: SortableTreeItemProps<TreeItem<T>>['components'];
   height?: string | number;
+  className?: string;
+  'aria-label'?: string;
+  emptyMessage?: string;
   renderItemContent?: SortableTreeItemProps<TreeItem<T>>['renderItem'];
   onChange?: (currentItem: FlattenedItem<T>, changeItem: FlattenedItem<T>) => void;
   onRemove?: (id: UniqueIdentifier) => void;
@@ -43,10 +47,13 @@ export const SortableTree = <T extends object = {}>({
   items: controlledItems,
   onItemsChange,
   indicator = false,
-  indentationWidth = 50,
+  indentationWidth = 24,
   removable,
   components,
   height = 400,
+  className,
+  'aria-label': ariaLabel = 'Sortable items',
+  emptyMessage = 'No items yet.',
   renderItemContent,
   onChange,
   onRemove,
@@ -83,7 +90,6 @@ export const SortableTree = <T extends object = {}>({
 
   const sensorContext: SensorContext<FlattenedItem<T>> = useRef({
     items: flattenedItems,
-    offset: offsetLeft,
   });
   const sensors = useMemo(
     // oxlint-disable-next-line react/refs -- This factory reads the ref only from sensor event handlers.
@@ -99,9 +105,8 @@ export const SortableTree = <T extends object = {}>({
   useEffect(() => {
     sensorContext.current = {
       items: flattenedItems,
-      offset: offsetLeft,
     };
-  }, [flattenedItems, offsetLeft]);
+  }, [flattenedItems]);
 
   const handleDragStart = useCallback(
     ({ operation: { source } }: Parameters<DragDropEventHandlers['onDragStart']>[0]) => {
@@ -109,8 +114,6 @@ export const SortableTree = <T extends object = {}>({
       const activeId = source.id;
       setActiveId(activeId);
       setOverId(activeId);
-
-      document.body.style.setProperty('cursor', 'grabbing');
     },
     [],
   );
@@ -133,36 +136,25 @@ export const SortableTree = <T extends object = {}>({
     setOverId(null);
     setActiveId(null);
     setOffsetLeft(0);
-
-    document.body.style.setProperty('cursor', '');
   }, []);
 
   const handleDragEnd = useCallback(
     ({ operation: { source, target, position }, canceled }: Parameters<DragDropEventHandlers['onDragEnd']>[0]) => {
       resetState();
 
-      if (!canceled && source && target) {
-        const { depth, parentId } = getProjection(
-          flattenedItems,
-          source.id,
-          target.id,
-          position.current.x - position.initial.x,
-          indentationWidth,
-        );
-        const clonedItems: FlattenedItem<T>[] = flattenTree(items);
-        const overIndex = clonedItems.findIndex(({ id }) => id === target.id);
-        const activeIndex = clonedItems.findIndex(({ id }) => id === source.id);
-        const activeTreeItem = clonedItems[activeIndex];
-
-        clonedItems[activeIndex] = { ...activeTreeItem, depth, parentId };
-
-        const sortedItems = arrayMove(clonedItems, activeIndex, overIndex);
-        const newItems = buildTree<T>(sortedItems);
-        onChange?.(activeTreeItem, sortedItems[overIndex]);
-        updateItems(newItems);
-      }
+      if (canceled || !source || !target) return;
+      const result = moveTreeItem(
+        items,
+        source.id,
+        target.id,
+        position.current.x - position.initial.x,
+        indentationWidth,
+      );
+      if (!result) return;
+      onChange?.(result.before, result.after);
+      updateItems(result.items);
     },
-    [items, flattenedItems, indentationWidth, onChange, resetState, updateItems],
+    [items, indentationWidth, onChange, resetState, updateItems],
   );
 
   const handleRemove = useCallback(
@@ -187,7 +179,9 @@ export const SortableTree = <T extends object = {}>({
       const offset = (event.to?.x ?? position.current.x + (event.by?.x ?? 0)) - position.initial.x;
       const visibleItems = sensorContext.current.items;
       const projection = getProjection(visibleItems, source.id, target.id, offset, indentationWidth);
-      return getAnnouncement(eventName, target.id, source.id, buildTree(visibleItems), projection);
+      return projection
+        ? getAnnouncement(eventName, target.id, source.id, buildTree(visibleItems), projection)
+        : undefined;
     },
     [sensorContext, indentationWidth],
   );
@@ -234,6 +228,14 @@ export const SortableTree = <T extends object = {}>({
           depth={id === activeId && projected ? projected.depth : depth}
           indentationWidth={indentationWidth}
           indicator={indicator}
+          dropPosition={
+            indicator && activeId !== null && id === overId && projected
+              ? index <= flattenedItems.findIndex((item) => item.id === activeId)
+                ? 'before'
+                : 'after'
+              : undefined
+          }
+          dropDepth={projected?.depth}
           collapsed={Boolean(collapsed && children.length)}
           onCollapse={collapsible && children.length ? () => handleCollapse(id) : undefined}
           onRemove={removable ? () => handleRemove(id) : undefined}
@@ -251,6 +253,8 @@ export const SortableTree = <T extends object = {}>({
       indentationWidth,
       indicator,
       projected,
+      flattenedItems,
+      overId,
       removable,
       renderItemContent,
     ],
@@ -269,22 +273,36 @@ export const SortableTree = <T extends object = {}>({
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
-      <Virtuoso style={{ height }} data={flattenedItems} itemContent={renderItem} increaseViewportBy={50} />
+      <ScrollArea
+        className={cn('box-border rounded-lg border border-border bg-background text-foreground', className)}
+        style={{ height }}
+      >
+        {flattenedItems.length ? (
+          <ul aria-label={ariaLabel} className='m-0 min-w-max list-none space-y-0.5 p-2'>
+            {flattenedItems.map((item, index) => renderItem(index, item))}
+          </ul>
+        ) : (
+          <output className='block p-6 text-center text-sm text-muted-foreground'>{emptyMessage}</output>
+        )}
+        <ScrollBar orientation='horizontal' />
+      </ScrollArea>
       {typeof document !== 'undefined' &&
         createPortal(
-          <DragOverlay dropAnimation={null} style={indicator ? { marginTop: -25 } : undefined}>
-            {activeId !== null && activeItem ? (
-              <SortableTreeItem<TreeItem<T>>
-                id={activeId}
-                depth={activeItem.depth}
-                clone
-                childCount={getChildCount(items, activeId) + 1}
-                value={activeItem}
-                indentationWidth={indentationWidth}
-                components={components}
-                renderItem={renderItemContent}
-              />
-            ) : null}
+          <DragOverlay dropAnimation={null}>
+            <ul className='m-0 list-none p-0' aria-hidden='true'>
+              {activeId !== null && activeItem ? (
+                <SortableTreeItem<TreeItem<T>>
+                  id={activeId}
+                  depth={activeItem.depth}
+                  clone
+                  childCount={getChildCount(items, activeId) + 1}
+                  value={activeItem}
+                  indentationWidth={indentationWidth}
+                  components={components}
+                  renderItem={renderItemContent}
+                />
+              ) : null}
+            </ul>
           </DragOverlay>,
           document.body,
         )}

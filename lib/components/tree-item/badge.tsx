@@ -1,11 +1,8 @@
-import styles from './tree-item.module.css';
+import { Badge as UiBadge } from '@/components/ui/badge';
 
-export type BadgeProps = {
-  count: number;
-};
-
-const Badge = (props: BadgeProps) => {
-  return <span className={styles.Count}>{props.count}</span>;
-};
-
-export { Badge };
+export type BadgeProps = { count: number };
+export const Badge = ({ count }: BadgeProps) => (
+  <UiBadge className='absolute -top-2 -right-2' aria-label={`${count} items`}>
+    {count}
+  </UiBadge>
+);

@@ -15,7 +15,9 @@
     "noFallthroughCasesInSwitch": true,
     "esModuleInterop": true,
     "paths": {
-      "dnd-tree-sortable": ["./lib/index.ts"]
+      "dnd-tree-sortable": ["./lib/index.ts"],
+      "@/components/ui/*": ["./lib/components/ui/*"],
+      "@/*": ["./lib/*"]
     }
   },
   "include": ["lib", "tests", "vite.config.ts", "vitest.config.ts"]

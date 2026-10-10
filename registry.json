@@ -7,122 +7,115 @@
       "name": "sortable-tree",
       "type": "registry:block",
       "title": "Sortable Tree",
-      "description": "A virtualized drag-and-drop tree with nesting, keyboard controls, collapse, remove, custom rows, and controlled state.",
+      "description": "A nested sortable tree with shadcn ScrollArea, Tailwind styling, and pointer/keyboard controls.",
       "dependencies": [
         "@dnd-kit/abstract@^0.5.0",
         "@dnd-kit/collision@^0.5.0",
         "@dnd-kit/dom@^0.5.0",
         "@dnd-kit/react@^0.5.0",
-        "clsx@^2.1.1",
-        "react-virtuoso@^4.18.16"
+        "class-variance-authority@^0.7.1",
+        "cn@^0.4.0",
+        "lucide-react@^1.54.0",
+        "radix-ui@^1.7.0"
       ],
       "files": [
         {
-          "path": "lib/components/action/action.module.css",
-          "type": "registry:file",
-          "target": "~/components/dnd-tree-sortable/components/action/action.module.css"
-        },
-        {
           "path": "lib/components/action/action.tsx",
           "type": "registry:file",
-          "target": "~/components/dnd-tree-sortable/components/action/action.tsx"
+          "target": "@components/dnd-tree-sortable/components/action/action.tsx"
         },
         {
           "path": "lib/components/action/index.ts",
           "type": "registry:file",
-          "target": "~/components/dnd-tree-sortable/components/action/index.ts"
+          "target": "@components/dnd-tree-sortable/components/action/index.ts"
         },
         {
           "path": "lib/components/handle/handle.tsx",
           "type": "registry:file",
-          "target": "~/components/dnd-tree-sortable/components/handle/handle.tsx"
+          "target": "@components/dnd-tree-sortable/components/handle/handle.tsx"
         },
         {
           "path": "lib/components/handle/index.ts",
           "type": "registry:file",
-          "target": "~/components/dnd-tree-sortable/components/handle/index.ts"
+          "target": "@components/dnd-tree-sortable/components/handle/index.ts"
         },
         {
           "path": "lib/components/icons/collapse-icon.tsx",
           "type": "registry:file",
-          "target": "~/components/dnd-tree-sortable/components/icons/collapse-icon.tsx"
+          "target": "@components/dnd-tree-sortable/components/icons/collapse-icon.tsx"
         },
         {
           "path": "lib/components/icons/index.ts",
           "type": "registry:file",
-          "target": "~/components/dnd-tree-sortable/components/icons/index.ts"
+          "target": "@components/dnd-tree-sortable/components/icons/index.ts"
         },
         {
           "path": "lib/components/index.ts",
           "type": "registry:file",
-          "target": "~/components/dnd-tree-sortable/components/index.ts"
+          "target": "@components/dnd-tree-sortable/components/index.ts"
         },
         {
           "path": "lib/components/remove/index.ts",
           "type": "registry:file",
-          "target": "~/components/dnd-tree-sortable/components/remove/index.ts"
+          "target": "@components/dnd-tree-sortable/components/remove/index.ts"
         },
         {
           "path": "lib/components/remove/remove.tsx",
           "type": "registry:file",
-          "target": "~/components/dnd-tree-sortable/components/remove/remove.tsx"
+          "target": "@components/dnd-tree-sortable/components/remove/remove.tsx"
         },
         {
           "path": "lib/components/tree-item/badge.tsx",
           "type": "registry:file",
-          "target": "~/components/dnd-tree-sortable/components/tree-item/badge.tsx"
+          "target": "@components/dnd-tree-sortable/components/tree-item/badge.tsx"
         },
         {
           "path": "lib/components/tree-item/default-content.tsx",
           "type": "registry:file",
-          "target": "~/components/dnd-tree-sortable/components/tree-item/default-content.tsx"
+          "target": "@components/dnd-tree-sortable/components/tree-item/default-content.tsx"
         },
         {
           "path": "lib/components/tree-item/index.ts",
           "type": "registry:file",
-          "target": "~/components/dnd-tree-sortable/components/tree-item/index.ts"
+          "target": "@components/dnd-tree-sortable/components/tree-item/index.ts"
         },
         {
           "path": "lib/components/tree-item/sortable-tree-item.tsx",
           "type": "registry:file",
-          "target": "~/components/dnd-tree-sortable/components/tree-item/sortable-tree-item.tsx"
-        },
-        {
-          "path": "lib/components/tree-item/tree-item.module.css",
-          "type": "registry:file",
-          "target": "~/components/dnd-tree-sortable/components/tree-item/tree-item.module.css"
+          "target": "@components/dnd-tree-sortable/components/tree-item/sortable-tree-item.tsx"
         },
         {
           "path": "lib/components/tree-item/tree-item.tsx",
           "type": "registry:file",
-          "target": "~/components/dnd-tree-sortable/components/tree-item/tree-item.tsx"
+          "target": "@components/dnd-tree-sortable/components/tree-item/tree-item.tsx"
         },
         {
           "path": "lib/index.ts",
           "type": "registry:file",
-          "target": "~/components/dnd-tree-sortable/index.ts"
+          "target": "@components/dnd-tree-sortable/index.ts"
         },
         {
           "path": "lib/keyboard-coordinates.ts",
           "type": "registry:file",
-          "target": "~/components/dnd-tree-sortable/keyboard-coordinates.ts"
+          "target": "@components/dnd-tree-sortable/keyboard-coordinates.ts"
         },
         {
           "path": "lib/sortable-tree.tsx",
           "type": "registry:file",
-          "target": "~/components/dnd-tree-sortable/sortable-tree.tsx"
+          "target": "@components/dnd-tree-sortable/sortable-tree.tsx"
         },
         {
           "path": "lib/types.ts",
           "type": "registry:file",
-          "target": "~/components/dnd-tree-sortable/types.ts"
+          "target": "@components/dnd-tree-sortable/types.ts"
         },
         {
           "path": "lib/utilities.ts",
           "type": "registry:file",
-          "target": "~/components/dnd-tree-sortable/utilities.ts"
+          "target": "@components/dnd-tree-sortable/utilities.ts"
         }
-      ]
+      ],
+      "registryDependencies": ["scroll-area", "button", "badge"]
     }
   ]
 }

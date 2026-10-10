@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/button';
 import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { SortableTree, type TreeItem } from 'dnd-tree-sortable';
@@ -16,7 +17,7 @@ const initialItems: TreeItem[] = [
     children: [
       { id: 'Sortable tree', children: [] },
       { id: 'Custom rows', children: [] },
-      { id: 'Virtualized lists', children: [] },
+      { id: 'Theming', children: [] },
     ],
   },
   {
@@ -69,9 +70,9 @@ function CopyButton({ value }: { value: string }) {
     window.setTimeout(() => setStatus('Copy'), 2000);
   }
   return (
-    <button className='copy' onClick={copy} aria-live='polite'>
+    <Button variant='outline' size='sm' className='copy' onClick={copy} aria-live='polite'>
       {status}
-    </button>
+    </Button>
   );
 }
 
@@ -93,13 +94,15 @@ export function App() {
         <nav aria-label='Main navigation'>
           <a href='#installation'>Installation</a>
           <a href='https://github.com/ductinhkzz/dnd-tree-sortable'>GitHub ↗</a>
-          <button
+          <Button
+            variant='ghost'
+            size='icon'
             className='theme'
             onClick={() => setDark(!dark)}
             aria-label={dark ? 'Use light theme' : 'Use dark theme'}
           >
             {dark ? '☀' : '◐'}
-          </button>
+          </Button>
         </nav>
       </header>
       <main>
@@ -113,8 +116,8 @@ export function App() {
             <span>A lot of possibility.</span>
           </h1>
           <p>
-            Drag, nest, and rearrange. A sortable React tree with virtualization built in. Add the source to your
-            project and make it yours.
+            Drag, nest, and rearrange. A sortable React tree with shadcn ScrollArea and Tailwind styling. Add the source
+            to your project and make it yours.
           </p>
           <div className='hero-actions'>
             <a className='primary' href='#installation'>
@@ -140,10 +143,30 @@ export function App() {
           </div>
           <div className='demo-panel'>
             <div className='panel-toolbar'>
-              <div className='tabs' role='tablist' aria-label='Component example'>
+              <div
+                className='tabs'
+                role='tablist'
+                tabIndex={-1}
+                aria-label='Component example'
+                onKeyDown={(event) => {
+                  if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+                  event.preventDefault();
+                  const next =
+                    event.key === 'Home'
+                      ? 'preview'
+                      : event.key === 'End'
+                        ? 'code'
+                        : tab === 'preview'
+                          ? 'code'
+                          : 'preview';
+                  setTab(next);
+                  document.getElementById(`${next}-tab`)?.focus();
+                }}
+              >
                 <button
                   role='tab'
                   id='preview-tab'
+                  tabIndex={tab === 'preview' ? 0 : -1}
                   aria-selected={tab === 'preview'}
                   aria-controls='demo-content'
                   onClick={() => setTab('preview')}
@@ -153,6 +176,7 @@ export function App() {
                 <button
                   role='tab'
                   id='code-tab'
+                  tabIndex={tab === 'code' ? 0 : -1}
                   aria-selected={tab === 'code'}
                   aria-controls='demo-content'
                   onClick={() => setTab('code')}
@@ -197,9 +221,14 @@ export function App() {
                       <input type='checkbox' checked={removable} onChange={(e) => setRemovable(e.target.checked)} />{' '}
                       Removable items
                     </label>
-                    <button className='reset' onClick={() => setItems(structuredClone(initialItems))}>
+                    <Button
+                      variant='outline'
+                      size='sm'
+                      className='reset'
+                      onClick={() => setItems(structuredClone(initialItems))}
+                    >
                       ↺ Reset tree
-                    </button>
+                    </Button>
                   </aside>
                 </div>
               ) : (
@@ -237,8 +266,8 @@ export function App() {
               </pre>
             </div>
             <p className='install-note'>
-              Installs to <code>components/dnd-tree-sortable</code> at the project root. Uses CSS Modules and your
-              shadcn theme variables. No Sass setup required.
+              Installs into your configured components directory and reuses shadcn ScrollArea, Button, and Badge. Styled
+              with Tailwind and your shadcn theme.
             </p>
             <div className='catalog'>
               <span>Registry catalog</span>
@@ -269,9 +298,7 @@ export function App() {
             <article>
               <span>⌘</span>
               <h3>Room to grow</h3>
-              <p>
-                Virtualized rendering keeps long lists manageable. Configure height, indentation, collapse, and removal.
-              </p>
+              <p>Uses your shadcn theme and ScrollArea. Configure height, indentation, collapse, and removal.</p>
             </article>
           </div>
         </section>

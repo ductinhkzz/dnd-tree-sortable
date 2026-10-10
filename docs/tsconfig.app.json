@@ -2,7 +2,9 @@
   "extends": "../tsconfig.json",
   "compilerOptions": {
     "paths": {
-      "dnd-tree-sortable": ["../lib/index.ts"]
+      "dnd-tree-sortable": ["../lib/index.ts"],
+      "@/components/ui/*": ["../lib/components/ui/*"],
+      "@/*": ["../lib/*"]
     }
   },
   "include": ["src", "../lib/vite-env.d.ts"]

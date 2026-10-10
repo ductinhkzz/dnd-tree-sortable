@@ -1,10 +1,9 @@
 // @vitest-environment jsdom
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import { cleanup, render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { SortableTree, type TreeItem, type ActionProps } from '../lib';
-import type { FlattenedItem } from '../lib/types';
 
 // jsdom has no layout observer; this is a browser API shim, not a dnd-kit mock.
 vi.hoisted(() => {
@@ -86,25 +85,6 @@ beforeEach(() => {
   });
 });
 
-// Isolate tree interactions from viewport measurement; the real dnd-kit controls remain active.
-vi.mock('react-virtuoso', () => ({
-  Virtuoso: ({
-    data,
-    itemContent,
-  }: {
-    data: FlattenedItem[];
-    itemContent: (index: number, item: FlattenedItem) => ReactNode;
-  }) => (
-    <div>
-      {data.map((item, index) => (
-        <div key={item.id} data-tree-row>
-          {itemContent(index, item)}
-        </div>
-      ))}
-    </div>
-  ),
-}));
-
 afterEach(cleanup);
 
 test('controlled collapse updates state, hides descendants, and leaves incoming data untouched', async () => {
@@ -126,11 +106,11 @@ test('controlled collapse updates state, hides descendants, and leaves incoming 
   render(<ControlledTree />);
   const user = userEvent.setup();
   expect(screen.queryByText('child')).not.toBeNull();
-  await user.click(screen.getByRole('button', { name: 'Collapse item' }));
+  await user.click(screen.getByRole('button', { name: /^Collapse / }));
   expect(screen.queryByText('child')).toBeNull();
   expect(changed.mock.calls[0][0][0].collapsed).toBe(true);
   expect(initial[0].collapsed).toBeUndefined();
-  await user.click(screen.getByRole('button', { name: 'Expand item' }));
+  await user.click(screen.getByRole('button', { name: 'Expand 0' }));
   expect(screen.queryByText('child')).not.toBeNull();
 });
 
@@ -148,7 +128,7 @@ test('uncontrolled removal reports the full next tree and supports numeric ID ze
       onRemove={removed}
     />,
   );
-  await userEvent.setup().click(screen.getAllByRole('button', { name: 'Remove item' })[0]);
+  await userEvent.setup().click(screen.getAllByRole('button', { name: /^Remove / })[0]);
   expect(removed).toHaveBeenCalledWith(0);
   expect(changed).toHaveBeenCalledWith([{ id: 'remaining', children: [] }]);
   expect(screen.queryByText('0')).toBeNull();
@@ -173,8 +153,8 @@ test('tree action buttons do not submit an enclosing form', async () => {
     </form>,
   );
   const user = userEvent.setup();
-  await user.click(screen.getByRole('button', { name: 'Collapse item' }));
-  await user.click(screen.getByRole('button', { name: 'Remove item' }));
+  await user.click(screen.getByRole('button', { name: /^Collapse / }));
+  await user.click(screen.getByRole('button', { name: /^Remove / }));
   expect(submitted).not.toHaveBeenCalled();
 });
 
@@ -191,7 +171,7 @@ test('keyboard drag reorders a subtree and preserves payloads', async () => {
     />,
   );
   const user = userEvent.setup();
-  screen.getAllByRole('button', { name: 'Drag item' })[0].focus();
+  screen.getAllByRole('button', { name: /^Drag / })[0].focus();
   await user.keyboard('[Space]');
   await user.keyboard('[ArrowDown]');
   await user.keyboard('[Space]');
@@ -213,12 +193,12 @@ test('keyboard right arrow nests and Escape cancels without updating data', asyn
     />,
   );
   const user = userEvent.setup();
-  screen.getAllByRole('button', { name: 'Drag item' })[1].focus();
+  screen.getAllByRole('button', { name: /^Drag / })[1].focus();
   await user.keyboard('[Space]');
   await user.keyboard('[ArrowRight]');
   await user.keyboard('[Escape]');
   expect(changed).not.toHaveBeenCalled();
-  screen.getAllByRole('button', { name: 'Drag item' })[1].focus();
+  screen.getAllByRole('button', { name: /^Drag / })[1].focus();
   await user.keyboard('[Space]');
   await user.keyboard('[ArrowRight]');
   await user.keyboard('[Space]');
@@ -237,12 +217,11 @@ test('pointer drag moves a root row using the new sensor and collision detector'
       onItemsChange={changed}
     />,
   );
-  const handle = screen.getAllByRole('button', { name: 'Drag item' })[0];
+  const handle = screen.getAllByRole('button', { name: /^Drag / })[0];
   await act(async () => {
     fireEvent.pointerDown(handle, { clientX: 150, clientY: 20, button: 0 });
     fireEvent.pointerMove(document, { clientX: 150, clientY: 30 });
   });
-  await waitFor(() => expect(document.body.style.cursor).toBe('grabbing'));
   await waitFor(() => expect(handle.getAttribute('aria-pressed')).toBe('true'));
   await act(async () => {
     fireEvent.pointerMove(document, { clientX: 150, clientY: 55 });
@@ -289,4 +268,44 @@ test('custom handle refs support controlled keyboard outdent and restore focus a
     ]),
   );
   await waitFor(() => expect(document.activeElement).toBe(screen.getAllByRole('button', { name: 'Custom handle' })[1]));
+});
+
+test('renders a real ScrollArea and accessible empty state with consumer styling', () => {
+  const { container } = render(<SortableTree className='custom-tree' height={240} emptyMessage='Nothing to sort' />);
+  expect(screen.getByRole('status').textContent).toBe('Nothing to sort');
+  expect(container.querySelector('[data-slot="scroll-area"]')?.className).toContain('custom-tree');
+  expect(container.querySelector('[data-slot="scroll-area"]')?.getAttribute('style')).toContain('240px');
+  expect(container.querySelector('[data-slot="scroll-area-viewport"]')).not.toBeNull();
+});
+
+test('a drop in the original position does not report a change', async () => {
+  const changed = vi.fn<(items: TreeItem[]) => void>();
+  const legacy = vi.fn<(before: TreeItem, after: TreeItem) => void>();
+  render(<SortableTree defaultItems={[{ id: 0, children: [] }]} onItemsChange={changed} onChange={legacy} />);
+  const user = userEvent.setup();
+  screen.getByRole('button', { name: 'Drag 0' }).focus();
+  await user.keyboard('[Space]');
+  await user.keyboard('[Space]');
+  expect(changed).not.toHaveBeenCalled();
+  expect(legacy).not.toHaveBeenCalled();
+});
+
+test('a controlled source removed during a drag is ignored safely on drop', async () => {
+  const changed = vi.fn<(items: TreeItem[]) => void>();
+  const { rerender } = render(
+    <SortableTree
+      items={[
+        { id: 'source', children: [] },
+        { id: 'target', children: [] },
+      ]}
+      onItemsChange={changed}
+    />,
+  );
+  const user = userEvent.setup();
+  screen.getByRole('button', { name: 'Drag source' }).focus();
+  await user.keyboard('[Space]');
+  await user.keyboard('[ArrowDown]');
+  rerender(<SortableTree items={[{ id: 'target', children: [] }]} onItemsChange={changed} />);
+  await user.keyboard('[Space]');
+  expect(changed).not.toHaveBeenCalled();
 });

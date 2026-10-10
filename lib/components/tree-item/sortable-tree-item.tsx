@@ -5,7 +5,6 @@ import { pointerDistance } from '@dnd-kit/collision';
 import { useDragOperation } from '@dnd-kit/react';
 
 import { TreeItem, TreeItemProps } from './tree-item';
-import { iOS } from '../../utilities';
 import { TreeItem as TreeItemType } from '../../types';
 
 export interface SortableTreeItemProps<T extends TreeItemType> extends TreeItemProps<T> {
@@ -25,7 +24,7 @@ const SortableTreeItemComponent = <T extends TreeItemType>({
     id,
     index,
     collisionDetector: pointerDistance,
-    // React/Virtuoso own row order. OptimisticSortingPlugin would reorder their DOM behind React.
+    // React own row order. OptimisticSortingPlugin would reorder their DOM behind React.
     plugins: [],
   });
   const { source } = useDragOperation();
@@ -35,7 +34,7 @@ const SortableTreeItemComponent = <T extends TreeItemType>({
     wrapperRef: targetRef,
     depth: depth,
     ghost: isDragSource,
-    disableSelection: iOS,
+    disableSelection: source !== null,
     disableInteraction: source !== null,
     handleProps: {
       elementRef: handleRef,

@@ -22,11 +22,7 @@ export type FlattenedItem<T extends object = {}> = TreeItem<T> & {
 };
 
 export type SensorContext<T extends FlattenedItem> = {
-  current: { items: T[]; offset: number };
-};
-
-export type NonNullablePick<T, K extends keyof T> = {
-  [P in K]: NonNullable<T[P]>;
+  current: { items: T[] };
 };
 
 export type ProjectedType = {
@@ -34,11 +30,6 @@ export type ProjectedType = {
   maxDepth: number;
   minDepth: number;
   parentId: UniqueIdentifier | null;
-};
-
-export type PositionType = {
-  parentId: UniqueIdentifier | null;
-  overId: UniqueIdentifier;
 };
 
 export type RenderComponentType<T extends TreeItem> = {
