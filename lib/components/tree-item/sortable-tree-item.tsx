@@ -1,52 +1,44 @@
-import { CSSProperties, memo, JSX } from 'react';
-import type { UniqueIdentifier } from '@dnd-kit/core';
-import { useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
+import { memo, JSX } from 'react';
+import type { UniqueIdentifier } from '@dnd-kit/abstract';
+import { useSortable } from '@dnd-kit/react/sortable';
+import { pointerDistance } from '@dnd-kit/collision';
+import { useDragOperation } from '@dnd-kit/react';
 
 import { TreeItem, TreeItemProps } from './tree-item';
-import { animateLayoutChanges, iOS } from '../../utilities';
+import { iOS } from '../../utilities';
 import { TreeItem as TreeItemType } from '../../types';
 
 export interface SortableTreeItemProps<T extends TreeItemType> extends TreeItemProps<T> {
   id: UniqueIdentifier;
+  index?: number;
   renderItem?: (props: Omit<SortableTreeItemProps<T>, 'id'>) => JSX.Element;
 }
 
 const SortableTreeItemComponent = <T extends TreeItemType>({
   id,
+  index = 0,
   depth,
   renderItem,
   ...props
 }: SortableTreeItemProps<T>) => {
-  const {
-    attributes,
-    isDragging,
-    isSorting,
-    listeners,
-    setDraggableNodeRef,
-    setDroppableNodeRef,
-    transform,
-    transition,
-  } = useSortable({
+  const { sourceRef, targetRef, handleRef, isDragSource } = useSortable({
     id,
-    animateLayoutChanges,
+    index,
+    collisionDetector: pointerDistance,
+    // React/Virtuoso own row order. OptimisticSortingPlugin would reorder their DOM behind React.
+    plugins: [],
   });
-  const style: CSSProperties = {
-    transform: CSS.Translate.toString(transform),
-    transition,
-  };
+  const { source } = useDragOperation();
 
   const itemProps = {
-    ref: setDraggableNodeRef,
-    wrapperRef: setDroppableNodeRef,
-    style: style,
+    ref: sourceRef,
+    wrapperRef: targetRef,
     depth: depth,
-    ghost: isDragging,
+    ghost: isDragSource,
     disableSelection: iOS,
-    disableInteraction: isSorting,
+    disableInteraction: source !== null,
     handleProps: {
-      ...attributes,
-      ...listeners,
+      elementRef: handleRef,
     },
     ...props,
   };

@@ -143,20 +143,22 @@ Built on the [dnd-kit sortable tree example](https://github.com/clauderic/dnd-ki
 
 Direct versions were checked against npm's stable `latest` tags. The lockfile records the tested versions.
 
-| Area                                | Version                | Review                                                                      |
-| ----------------------------------- | ---------------------- | --------------------------------------------------------------------------- |
-| React / React DOM                   | 19.3.0                 | Site and interaction tests migrated from React 18                           |
-| Vite / React plugin                 | 8.3.4 / 6.1.2          | Oxc/Rolldown build; removed old Rollup plugin configuration                 |
-| TypeScript                          | 7.0.2                  | Removed `baseUrl`; direct declaration generation replaces `vite-plugin-dts` |
-| Vitest                              | 5.0.3                  | Node utility/SSR tests and jsdom interaction tests                          |
-| Oxlint / Oxfmt                      | 1.87.0 / 0.72.0        | Replaces ESLint and Prettier                                                |
-| commitlint / Husky                  | 21.2.3 / 9.1.7         | Conventional Commit validation and local hooks                              |
-| React Virtuoso                      | 4.18.16                | Native scroll viewport replaces `rc-scrollbars`                             |
-| dnd-kit core / sortable / utilities | 6.3.1 / 10.0.0 / 3.2.2 | Latest stable versions of the existing classic API                          |
-| shadcn                              | 4.21.4                 | Latest stable registry CLI                                                  |
+| Area                                       | Version         | Review                                                                      |
+| ------------------------------------------ | --------------- | --------------------------------------------------------------------------- |
+| React / React DOM                          | 19.3.0          | Site and interaction tests migrated from React 18                           |
+| Vite / React plugin                        | 8.3.4 / 6.1.2   | Oxc/Rolldown build; removed old Rollup plugin configuration                 |
+| TypeScript                                 | 7.0.2           | Removed `baseUrl`; direct declaration generation replaces `vite-plugin-dts` |
+| Vitest                                     | 5.0.3           | Node utility/SSR tests and jsdom interaction tests                          |
+| Oxlint / Oxfmt                             | 1.87.0 / 0.72.0 | Replaces ESLint and Prettier                                                |
+| commitlint / Husky                         | 21.2.3 / 9.1.7  | Conventional Commit validation and local hooks                              |
+| React Virtuoso                             | 4.18.16         | Native scroll viewport replaces `rc-scrollbars`                             |
+| dnd-kit React / DOM / abstract / collision | 0.5.0           | New architecture; removed core, sortable, and utilities packages            |
+| shadcn                                     | 4.21.4          | Latest stable registry CLI                                                  |
 
 Removed `rc-scrollbars` (its peer range stops at React 18), ESLint and its plugins, Prettier, tsx, glob, the Rollup visualizer, and `vite-plugin-dts`. The unused React Pages/MDX docs tree, old docs lockfile, template pages, and redundant TypeScript configs were removed. Runtime dependencies now live in `dependencies`, and the npm build externalizes them rather than copying them into the bundle.
 
-The [new dnd-kit architecture](https://github.com/clauderic/dnd-kit) offers `@dnd-kit/react` 0.5.0. That is a different API, not an upgrade of `@dnd-kit/core`. Migrating would require rebuilding nested-tree projection, virtualized sorting, keyboard movement, and announcements. The classic implementation stays on its latest stable packages for this revision; that architectural migration remains open.
+Migrated to the [new dnd-kit React API](https://dndkit.com/react/guides/migration/): `DragDropProvider`, `@dnd-kit/react/sortable`, ref-based handles, and the new DOM sensors/accessibility plugin. Virtualized rows explicitly disable optimistic DOM sorting so React Virtuoso owns row order. Up/down keys follow visible tree order; left/right keys change nesting; Escape cancels. Pointer collision detection uses pointer distance to visible rows. Subtrees and custom payloads are preserved on drop.
+
+Custom `components.Handle` implementations receive `elementRef` in `ActionProps`; attach it to the handle button (`<button ref={elementRef}>`) or pass all props through the built-in `Action` component. Custom `renderItemContent` implementations must forward `ref`, `wrapperRef`, and `handleProps.elementRef` to their source, target wrapper, and handle. The obsolete classic drop animation was removed; the overlay ends immediately on drop. Registry installs now include only the new dnd-kit packages.
 
 `npm audit --omit=dev` reports **zero production vulnerabilities**. The full audit reports **seven high-severity development-only entries** associated with shadcn's transitive `braces` → `micromatch` → `fast-glob` dependency chain (including ts-morph and @shadcn/registry). These are package-level audit entries, not seven independently validated application vulnerabilities. The installed latest shadcn version still carries them; no forced downgrade or unverified override was applied. Track [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm) and update the CLI when a safe upstream fix is available.

@@ -1,5 +1,5 @@
 import { JSX } from 'react';
-import type { UniqueIdentifier } from '@dnd-kit/core';
+import type { UniqueIdentifier } from '@dnd-kit/abstract';
 import { ActionProps, BadgeProps } from './components';
 
 export type BaseTreeItem = {

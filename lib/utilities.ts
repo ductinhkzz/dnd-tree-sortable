@@ -1,5 +1,11 @@
-import type { Modifier, UniqueIdentifier } from '@dnd-kit/core';
-import { AnimateLayoutChanges, arrayMove } from '@dnd-kit/sortable';
+import type { UniqueIdentifier } from '@dnd-kit/abstract';
+
+export function arrayMove<T>(items: T[], from: number, to: number): T[] {
+  const result = [...items];
+  const [item] = result.splice(from, 1);
+  result.splice(to, 0, item);
+  return result;
+}
 
 import type { FlattenedItem, ProjectedType, TreeItem } from './types';
 
@@ -182,15 +188,6 @@ export function removeChildrenOf<T extends FlattenedItem>(items: T[], ids: Uniqu
     return true;
   });
 }
-
-export const animateLayoutChanges: AnimateLayoutChanges = ({ isSorting, wasDragging }) => !(isSorting || wasDragging);
-
-export const adjustTranslate: Modifier = ({ transform }) => {
-  return {
-    ...transform,
-    y: transform.y - 25,
-  };
-};
 
 export const getAnnouncement = (
   eventName: string,

@@ -2,22 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import {
-  Announcements,
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragStartEvent,
-  DragOverlay,
-  DragMoveEvent,
-  DragEndEvent,
-  DragOverEvent,
-  UniqueIdentifier,
-} from '@dnd-kit/core';
-import { SortableContext, arrayMove, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { DragDropProvider, DragOverlay, type DragDropEventHandlers } from '@dnd-kit/react';
+import { Accessibility, PointerSensor, type DragDropManager } from '@dnd-kit/dom';
+import type { UniqueIdentifier, Plugins } from '@dnd-kit/abstract';
 import { Virtuoso } from 'react-virtuoso';
 
 import {
@@ -28,13 +15,12 @@ import {
   removeItem,
   removeChildrenOf,
   setProperty,
-  adjustTranslate,
+  arrayMove,
   getAnnouncement,
 } from './utilities';
-import type { FlattenedItem, PositionType, SensorContext, TreeItem } from './types';
-import { sortableTreeKeyboardCoordinates } from './keyboard-coordinates';
+import type { FlattenedItem, SensorContext, TreeItem } from './types';
+import { createTreeKeyboardSensor } from './keyboard-coordinates';
 import { SortableTreeItem, SortableTreeItemProps } from './components';
-import { dropAnimationConfig, measuring } from './constants';
 
 export interface SortableTreeProps<T extends object> {
   collapsible?: boolean;
@@ -77,7 +63,6 @@ export const SortableTree = <T extends object = {}>({
   const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null);
   const [overId, setOverId] = useState<UniqueIdentifier | null>(null);
   const [offsetLeft, setOffsetLeft] = useState(0);
-  const [currentPosition, setCurrentPosition] = useState<PositionType | null>(null);
 
   const flattenedItems = useMemo(() => {
     const flattenedTree = flattenTree(items);
@@ -100,19 +85,12 @@ export const SortableTree = <T extends object = {}>({
     items: flattenedItems,
     offset: offsetLeft,
   });
-  const coordinateGetter = useMemo(
-    // oxlint-disable-next-line react/refs -- The factory returns an event handler; it reads the ref only on keyboard events.
-    () => sortableTreeKeyboardCoordinates(sensorContext, indicator, indentationWidth),
-    [sensorContext, indicator, indentationWidth],
-  );
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter,
-    }),
+  const sensors = useMemo(
+    // oxlint-disable-next-line react/refs -- This factory reads the ref only from sensor event handlers.
+    () => [PointerSensor, createTreeKeyboardSensor(sensorContext, indentationWidth)],
+    [sensorContext, indentationWidth],
   );
 
-  const sortedIds = useMemo(() => flattenedItems.map(({ id }) => id), [flattenedItems]);
   const activeItem = useMemo(
     () => (activeId !== null ? flattenedItems.find(({ id }) => id === activeId) : null),
     [activeId, flattenedItems],
@@ -125,69 +103,55 @@ export const SortableTree = <T extends object = {}>({
     };
   }, [flattenedItems, offsetLeft]);
 
-  const announcements: Announcements = {
-    onDragStart({ active }) {
-      return `Picked up ${active.id}.`;
-    },
-    onDragMove({ active, over }) {
-      return getMovementAnnouncement('onDragMove', active.id, over?.id);
-    },
-    onDragOver({ active, over }) {
-      return getMovementAnnouncement('onDragOver', active.id, over?.id);
-    },
-    onDragEnd({ active, over }) {
-      return getMovementAnnouncement('onDragEnd', active.id, over?.id);
-    },
-    onDragCancel({ active }) {
-      return `Moving was cancelled. ${active.id} was dropped in its original position.`;
-    },
-  };
-
   const handleDragStart = useCallback(
-    ({ active: { id: activeId } }: DragStartEvent) => {
+    ({ operation: { source } }: Parameters<DragDropEventHandlers['onDragStart']>[0]) => {
+      if (!source) return;
+      const activeId = source.id;
       setActiveId(activeId);
       setOverId(activeId);
 
-      const activeItem = flattenedItems.find(({ id }) => id === activeId);
-
-      if (activeItem) {
-        setCurrentPosition({
-          parentId: activeItem.parentId,
-          overId: activeId,
-        });
-      }
-
       document.body.style.setProperty('cursor', 'grabbing');
     },
-    [flattenedItems],
+    [],
   );
 
-  const handleDragMove = useCallback(({ delta }: DragMoveEvent) => {
-    setOffsetLeft(delta.x);
-  }, []);
+  const handleDragMove = useCallback(
+    ({ operation: { position }, to, by }: Parameters<DragDropEventHandlers['onDragMove']>[0]) => {
+      setOffsetLeft((to?.x ?? position.current.x + (by?.x ?? 0)) - position.initial.x);
+    },
+    [],
+  );
 
-  const handleDragOver = useCallback(({ over }: DragOverEvent) => {
-    setOverId(over?.id ?? null);
-  }, []);
+  const handleDragOver = useCallback(
+    ({ operation: { target } }: Parameters<DragDropEventHandlers['onDragOver']>[0]) => {
+      setOverId(target?.id ?? null);
+    },
+    [],
+  );
 
   const resetState = useCallback(() => {
     setOverId(null);
     setActiveId(null);
     setOffsetLeft(0);
-    setCurrentPosition(null);
 
     document.body.style.setProperty('cursor', '');
   }, []);
 
   const handleDragEnd = useCallback(
-    ({ active, over }: DragEndEvent) => {
+    ({ operation: { source, target, position }, canceled }: Parameters<DragDropEventHandlers['onDragEnd']>[0]) => {
       resetState();
 
-      if (projected && over) {
-        const { depth, parentId } = projected;
+      if (!canceled && source && target) {
+        const { depth, parentId } = getProjection(
+          flattenedItems,
+          source.id,
+          target.id,
+          position.current.x - position.initial.x,
+          indentationWidth,
+        );
         const clonedItems: FlattenedItem<T>[] = flattenTree(items);
-        const overIndex = clonedItems.findIndex(({ id }) => id === over.id);
-        const activeIndex = clonedItems.findIndex(({ id }) => id === active.id);
+        const overIndex = clonedItems.findIndex(({ id }) => id === target.id);
+        const activeIndex = clonedItems.findIndex(({ id }) => id === source.id);
         const activeTreeItem = clonedItems[activeIndex];
 
         clonedItems[activeIndex] = { ...activeTreeItem, depth, parentId };
@@ -198,12 +162,8 @@ export const SortableTree = <T extends object = {}>({
         updateItems(newItems);
       }
     },
-    [items, onChange, projected, resetState, updateItems],
+    [items, flattenedItems, indentationWidth, onChange, resetState, updateItems],
   );
-
-  const handleDragCancel = useCallback(() => {
-    resetState();
-  }, [resetState]);
 
   const handleRemove = useCallback(
     (id: UniqueIdentifier) => {
@@ -221,30 +181,55 @@ export const SortableTree = <T extends object = {}>({
   );
 
   const getMovementAnnouncement = useCallback(
-    (eventName: string, activeId: UniqueIdentifier, overId?: UniqueIdentifier) => {
-      if (overId !== undefined && projected) {
-        const canNotSetPosition =
-          currentPosition && projected.parentId === currentPosition.parentId && overId === currentPosition.overId;
-        if (eventName !== 'onDragEnd' && !canNotSetPosition) {
-          setCurrentPosition({
-            parentId: projected.parentId,
-            overId,
-          });
-        }
-
-        return getAnnouncement(eventName, overId, activeId, items, projected);
-      }
+    (eventName: string, event: Pick<Parameters<DragDropEventHandlers['onDragMove']>[0], 'operation' | 'to' | 'by'>) => {
+      const { source, target, position } = event.operation;
+      if (!source || !target) return;
+      const offset = (event.to?.x ?? position.current.x + (event.by?.x ?? 0)) - position.initial.x;
+      const visibleItems = sensorContext.current.items;
+      const projection = getProjection(visibleItems, source.id, target.id, offset, indentationWidth);
+      return getAnnouncement(eventName, target.id, source.id, buildTree(visibleItems), projection);
     },
-    [currentPosition, items, projected],
+    [sensorContext, indentationWidth],
+  );
+  const plugins = useMemo(
+    () => (defaults: Plugins<DragDropManager>) =>
+      defaults.map((plugin) =>
+        plugin === Accessibility
+          ? {
+              plugin: Accessibility,
+              options: {
+                screenReaderInstructions: {
+                  draggable:
+                    'Press Space or Enter to pick up. Use up and down arrows to move, left and right arrows to change nesting. Press Space or Enter to drop, Escape to cancel.',
+                },
+                announcements: {
+                  dragstart: ({ operation: { source } }: Parameters<DragDropEventHandlers['onDragStart']>[0]) =>
+                    source ? `Picked up ${source.id}.` : undefined,
+                  dragmove: (
+                    event: Pick<Parameters<DragDropEventHandlers['onDragMove']>[0], 'operation' | 'to' | 'by'>,
+                  ) => getMovementAnnouncement('onDragMove', event),
+                  dragover: (event: Parameters<DragDropEventHandlers['onDragOver']>[0]) =>
+                    getMovementAnnouncement('onDragOver', event),
+                  dragend: (event: Parameters<DragDropEventHandlers['onDragEnd']>[0]) =>
+                    event.canceled
+                      ? `Moving was cancelled. ${event.operation.source?.id} was dropped in its original position.`
+                      : getMovementAnnouncement('onDragEnd', event),
+                },
+              },
+            }
+          : plugin,
+      ),
+    [getMovementAnnouncement],
   );
 
   const renderItem = useCallback(
-    (_: number, item: FlattenedItem<T>) => {
+    (index: number, item: FlattenedItem<T>) => {
       const { id, children, collapsed, depth } = item;
       return (
         <SortableTreeItem<TreeItem<T>>
           key={id}
           id={id}
+          index={index}
           value={item}
           depth={id === activeId && projected ? projected.depth : depth}
           indentationWidth={indentationWidth}
@@ -272,38 +257,37 @@ export const SortableTree = <T extends object = {}>({
   );
 
   return (
-    <DndContext
-      accessibility={{ announcements }}
+    <DragDropProvider
+      plugins={plugins}
+      onCollision={(event, manager) => {
+        // Keyboard targets follow visible tree order, independent of geometric pointer collisions.
+        if (manager.dragOperation.activatorEvent instanceof KeyboardEvent) event.preventDefault();
+      }}
       sensors={sensors}
-      collisionDetection={closestCenter}
-      measuring={measuring}
       onDragStart={handleDragStart}
       onDragMove={handleDragMove}
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
-      onDragCancel={handleDragCancel}
     >
-      <SortableContext items={sortedIds} strategy={verticalListSortingStrategy}>
-        <Virtuoso style={{ height }} data={flattenedItems} itemContent={renderItem} increaseViewportBy={50} />
-        {typeof document !== 'undefined' &&
-          createPortal(
-            <DragOverlay dropAnimation={dropAnimationConfig} modifiers={indicator ? [adjustTranslate] : undefined}>
-              {activeId !== null && activeItem ? (
-                <SortableTreeItem<TreeItem<T>>
-                  id={activeId}
-                  depth={activeItem.depth}
-                  clone
-                  childCount={getChildCount(items, activeId) + 1}
-                  value={activeItem}
-                  indentationWidth={indentationWidth}
-                  components={components}
-                  renderItem={renderItemContent}
-                />
-              ) : null}
-            </DragOverlay>,
-            document.body,
-          )}
-      </SortableContext>
-    </DndContext>
+      <Virtuoso style={{ height }} data={flattenedItems} itemContent={renderItem} increaseViewportBy={50} />
+      {typeof document !== 'undefined' &&
+        createPortal(
+          <DragOverlay dropAnimation={null} style={indicator ? { marginTop: -25 } : undefined}>
+            {activeId !== null && activeItem ? (
+              <SortableTreeItem<TreeItem<T>>
+                id={activeId}
+                depth={activeItem.depth}
+                clone
+                childCount={getChildCount(items, activeId) + 1}
+                value={activeItem}
+                indentationWidth={indentationWidth}
+                components={components}
+                renderItem={renderItemContent}
+              />
+            ) : null}
+          </DragOverlay>,
+          document.body,
+        )}
+    </DragDropProvider>
   );
 };
