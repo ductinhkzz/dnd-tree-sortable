@@ -59,12 +59,13 @@ export function TreeDemo() {
 
 Every item must have a unique string or numeric `id` and a `children` array. Extra fields are retained when items move. Use `TreeItem<YourData>` and `components.ItemContent` to render custom data. Keep IDs and structure stable during a drag.
 
-For uncontrolled use, pass `defaultItems` instead of `items`. `defaultItems` is only read on mount. `onItemsChange` reports the entire tree after sorting, collapsing, or removing. When using `items`, update it in `onItemsChange`.
+For uncontrolled use, pass `defaultItems` instead of `items`. `defaultItems` is only read on mount. `onItemsChange` reports the entire tree after sorting, collapsing, removing, or loading children. When using `items`, update it in `onItemsChange`.
 
 ### Props
 
 | Prop                | Purpose                                                       | Default           |
 | ------------------- | ------------------------------------------------------------- | ----------------- |
+| `loadChildren`      | Async child loader; receives the folder and an AbortSignal    | —                 |
 | `mode`              | `reorder`, `tree`, or `explorer` movement rules               | `tree`            |
 | `items`             | Controlled tree data                                          | —                 |
 | `defaultItems`      | Initial uncontrolled tree                                     | `[]`              |
@@ -116,6 +117,34 @@ Use `mode="explorer"` for folder/file icons, single selection, click-to-toggle f
 `selectedId` controls selection; update it from `onSelect`. `items`/`onItemsChange` continue to control tree structure. Opening a file calls `onOpen`; the host application supplies its editor or preview. Rename/create and multi-selection are outside this first Explorer implementation. Folder rows use a borderless Explorer layout, colored file-type icons, and a rounded selection highlight. Drag the row to move it; Alt+M reveals and focuses the keyboard move handle. Space/Enter picks up, Up/Down chooses a folder, and Left chooses workspace root. Row arrow keys navigate the Explorer. Folder drops append to the destination and expand it; dropping into the current parent does nothing. Files cannot receive children and folders cannot move into their own descendants.
 
 Virtualization activates automatically at **200 visible nodes** in all modes, so collapsed descendants do not count. Set `virtualize={true}` to always virtualize or `virtualize={false}` to render every visible row. Rows are measured for custom heights. Focused rows and drag sources stay mounted; keyboard targets are revealed before the drag moves. Custom `renderItemContent` implementations must forward `wrapperRef`, `wrapperStyle`, `data-index`, and the supplied accessibility/event props to the outer row (the built-in row does this). The playground includes Reorder, Hierarchy, Folders, and 1,000-file examples.
+
+## Dynamic child loading
+
+Mark a folder with `childrenLoaded: false`, start it collapsed, and provide `loadChildren`. Only expanded, visible folders request children. Unmarked items retain their existing behavior.
+
+```tsx
+import { SortableTree, type LoadChildren } from '@/components/dnd-tree-sortable';
+
+const loadChildren: LoadChildren = async (folder, { signal }) => {
+  const response = await fetch(`/api/tree/${encodeURIComponent(String(folder.id))}`, { signal });
+  if (!response.ok) throw new Error('Could not load children');
+  return response.json(); // TreeItem[] with globally unique IDs
+};
+
+<SortableTree
+  mode='explorer'
+  defaultItems={[{ id: 'src', kind: 'folder', collapsed: true, childrenLoaded: false, children: [] }]}
+  loadChildren={loadChildren}
+/>;
+```
+
+The loader returns the folder's immediate children. Return more collapsed folders with `childrenLoaded: false` to load deeper levels on demand. A visible folder that starts expanded loads automatically; loading a parent does not fetch its collapsed descendants.
+
+Successful responses set `childrenLoaded: true` in the tree, including empty results. Pending requests are deduplicated and re-expansion uses the cached children. Rows show a spinner and `aria-busy` while loading; failures keep the tree intact and expose a keyboard-accessible retry button. A failed request does not retry automatically.
+
+Collapsing a folder keeps its request running and caches the response without reopening it. Removing the folder, unmounting the tree, or removing `loadChildren` aborts its request; late responses are discarded even if the loader ignores the signal. Responses merge with the latest tree so moves, renames, and other loads are preserved. Files moved into a loading folder remain there. Duplicate IDs are treated as a load failure.
+
+Controlled trees must apply `onItemsChange` to retain loaded children. To refetch a completed folder, set its `childrenLoaded` back to `false` (also clear `children` if the remote result should replace cached contents). Use a new component `key` when replacing the entire data source, which also cancels outstanding requests. Virtualization automatically handles large loaded results. The **Dynamic loading** playground starts with four folders and includes nested loading, 1,000 fetched files, an empty result, and a retry example.
 
 ## Develop and build
 

@@ -124,6 +124,16 @@
           "path": "lib/tree-root-drop-zone.tsx",
           "type": "registry:file",
           "target": "@components/dnd-tree-sortable/tree-root-drop-zone.tsx"
+        },
+        {
+          "path": "lib/load-tree-children.ts",
+          "type": "registry:file",
+          "target": "@components/dnd-tree-sortable/load-tree-children.ts"
+        },
+        {
+          "path": "lib/use-lazy-children.ts",
+          "type": "registry:file",
+          "target": "@components/dnd-tree-sortable/use-lazy-children.ts"
         }
       ],
       "registryDependencies": ["scroll-area", "button", "badge"]

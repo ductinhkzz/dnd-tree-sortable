@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
-import { useState } from 'react';
+import { StrictMode, useState } from 'react';
 import { cleanup, render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
-import { SortableTree, type TreeItem, type ActionProps } from '../lib';
+import { SortableTree, type TreeItem, type ActionProps, type LoadChildren } from '../lib';
 
 // jsdom has no layout observer; this is a browser API shim, not a dnd-kit mock.
 vi.hoisted(() => {
@@ -579,4 +579,271 @@ test('Folder trees enter at the selected row and exclude action buttons from the
   expect(screen.getByRole('treeitem', { name: 'second' }).tabIndex).toBe(0);
   expect(screen.getByRole('treeitem', { name: 'first' }).tabIndex).toBe(-1);
   expect([...container.querySelectorAll('button')].every((button) => button.tabIndex === -1)).toBe(true);
+});
+
+function deferredChildren() {
+  let resolve!: (items: TreeItem[]) => void;
+  let reject!: (error: Error) => void;
+  const promise = new Promise<TreeItem[]>((yes, no) => {
+    resolve = yes;
+    reject = no;
+  });
+  return { promise, resolve, reject };
+}
+
+test('lazy folders load on demand, deduplicate pending expansion, and cache a result after collapse', async () => {
+  const response = deferredChildren();
+  const loader = vi.fn<LoadChildren>(() => response.promise);
+  render(
+    <SortableTree
+      mode='explorer'
+      loadChildren={loader}
+      defaultItems={[{ id: 'remote', childrenLoaded: false, collapsed: true, children: [] }]}
+    />,
+  );
+  expect(loader).not.toHaveBeenCalled();
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: 'Expand remote' }));
+  await waitFor(() => expect(loader).toHaveBeenCalledTimes(1));
+  expect(screen.getByRole('treeitem', { name: 'remote' }).getAttribute('aria-busy')).toBe('true');
+  await user.click(screen.getByRole('button', { name: 'Collapse remote' }));
+  await user.click(screen.getByRole('button', { name: 'Expand remote' }));
+  expect(loader).toHaveBeenCalledTimes(1);
+  await user.click(screen.getByRole('button', { name: 'Collapse remote' }));
+  await act(async () => response.resolve([{ id: 'loaded-file', kind: 'file', children: [] }]));
+  expect(screen.queryByRole('treeitem', { name: 'loaded-file' })).toBeNull();
+  expect(screen.getByRole('treeitem', { name: 'remote' }).getAttribute('aria-busy')).toBeNull();
+  await user.click(screen.getByRole('button', { name: 'Expand remote' }));
+  expect(screen.getByRole('treeitem', { name: 'loaded-file' }).getAttribute('aria-level')).toBe('2');
+  expect(loader).toHaveBeenCalledTimes(1);
+});
+
+test('empty lazy results are cached and stay recognizable as folders', async () => {
+  const changed = vi.fn<(items: TreeItem[]) => void>();
+  const loader = vi.fn<LoadChildren>(async () => []);
+  render(
+    <SortableTree
+      mode='explorer'
+      loadChildren={loader}
+      onItemsChange={changed}
+      defaultItems={[{ id: 0, childrenLoaded: false, collapsed: true, children: [] }]}
+    />,
+  );
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: 'Expand 0' }));
+  await waitFor(() => expect(changed.mock.calls.at(-1)?.[0][0].childrenLoaded).toBe(true));
+  await user.click(screen.getByRole('button', { name: 'Collapse 0' }));
+  await user.click(screen.getByRole('button', { name: 'Expand 0' }));
+  expect(loader).toHaveBeenCalledTimes(1);
+  expect(screen.getByRole('treeitem', { name: '0' }).getAttribute('aria-expanded')).toBe('true');
+});
+
+test('failed lazy loads retry explicitly without an automatic request loop', async () => {
+  const loader = vi
+    .fn<LoadChildren>()
+    .mockRejectedValueOnce(new Error('Offline'))
+    .mockResolvedValue([{ id: 'file', kind: 'file', children: [] }]);
+  render(
+    <SortableTree
+      mode='explorer'
+      loadChildren={loader}
+      defaultItems={[{ id: 'remote', childrenLoaded: false, collapsed: true, children: [] }]}
+    />,
+  );
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: 'Expand remote' }));
+  await waitFor(() => expect(screen.queryByRole('button', { name: 'Retry loading remote' })).not.toBeNull());
+  expect(loader).toHaveBeenCalledTimes(1);
+  await user.click(screen.getByRole('button', { name: 'Retry loading remote' }));
+  await waitFor(() => expect(screen.queryByRole('treeitem', { name: 'file' })).not.toBeNull());
+  expect(screen.queryByRole('button', { name: 'Retry loading remote' })).toBeNull();
+  expect(document.activeElement).toBe(screen.getByRole('treeitem', { name: 'remote' }));
+  expect(loader).toHaveBeenCalledTimes(2);
+});
+
+test('removing a lazy folder aborts its request and discards late results even if the loader ignores abort', async () => {
+  const response = deferredChildren();
+  let signal!: AbortSignal;
+  const loader = vi.fn<LoadChildren>((_item: TreeItem, options: { signal: AbortSignal }) => {
+    signal = options.signal;
+    return response.promise;
+  });
+  render(
+    <SortableTree
+      mode='explorer'
+      removable
+      loadChildren={loader}
+      defaultItems={[
+        { id: 'remote', childrenLoaded: false, children: [] },
+        { id: 'keep', kind: 'file', children: [] },
+      ]}
+    />,
+  );
+  await waitFor(() => expect(loader).toHaveBeenCalledTimes(1));
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: 'Remove remote' }));
+  await waitFor(() => expect(signal.aborted).toBe(true));
+  await act(async () => response.resolve([{ id: 'late-file', kind: 'file', children: [] }]));
+  expect(screen.queryByRole('treeitem', { name: 'remote' })).toBeNull();
+  expect(screen.queryByRole('treeitem', { name: 'late-file' })).toBeNull();
+  expect(screen.getByRole('treeitem', { name: 'keep' })).not.toBeNull();
+});
+
+test('simultaneous lazy responses merge into controlled state without losing another folder load', async () => {
+  const first = deferredChildren();
+  const second = deferredChildren();
+  const loader = vi.fn<LoadChildren>((item: TreeItem) => (item.id === 'first' ? first.promise : second.promise));
+  function Controlled() {
+    const [items, setItems] = useState<TreeItem[]>([
+      { id: 'first', childrenLoaded: false, children: [] },
+      { id: 'second', childrenLoaded: false, children: [] },
+    ]);
+    return <SortableTree mode='explorer' items={items} onItemsChange={setItems} loadChildren={loader} />;
+  }
+  render(<Controlled />);
+  await waitFor(() => expect(loader).toHaveBeenCalledTimes(2));
+  await act(async () => {
+    first.resolve([{ id: 'one', kind: 'file', children: [] }]);
+    second.resolve([{ id: 'two', kind: 'file', children: [] }]);
+  });
+  expect(screen.getByRole('treeitem', { name: 'one' })).not.toBeNull();
+  expect(screen.getByRole('treeitem', { name: 'two' })).not.toBeNull();
+});
+
+test('lazy completion preserves controlled edits made while loading', async () => {
+  const response = deferredChildren();
+  const changed = vi.fn<(items: TreeItem[]) => void>();
+  const loader = vi.fn<LoadChildren>(() => response.promise);
+  const { rerender } = render(
+    <SortableTree
+      mode='explorer'
+      items={[{ id: 'folder', childrenLoaded: false, children: [] }]}
+      onItemsChange={changed}
+      loadChildren={loader}
+    />,
+  );
+  await waitFor(() => expect(loader).toHaveBeenCalledTimes(1));
+  rerender(
+    <SortableTree
+      mode='explorer'
+      items={[
+        {
+          id: 'folder',
+          label: 'Renamed folder',
+          collapsed: true,
+          childrenLoaded: false,
+          children: [{ id: 'moved-in', kind: 'file', children: [] }],
+        },
+        { id: 'another', kind: 'file', children: [] },
+      ]}
+      onItemsChange={changed}
+      loadChildren={loader}
+    />,
+  );
+  await act(async () => response.resolve([{ id: 'remote-file', kind: 'file', children: [] }]));
+  const result = changed.mock.calls.at(-1)![0] as TreeItem[];
+  expect(result[0].label).toBe('Renamed folder');
+  expect(result[0].collapsed).toBe(true);
+  expect(result[0].children.map((item) => item.id)).toEqual(['remote-file', 'moved-in']);
+  expect(result[1].id).toBe('another');
+});
+
+test('lazy loads survive StrictMode setup replay and abort on unmount', async () => {
+  const response = deferredChildren();
+  let signal!: AbortSignal;
+  const loader = vi.fn<LoadChildren>((_item: TreeItem, options: { signal: AbortSignal }) => {
+    signal = options.signal;
+    return response.promise;
+  });
+  const { unmount } = render(
+    <StrictMode>
+      <SortableTree
+        mode='explorer'
+        defaultItems={[{ id: 'remote', childrenLoaded: false, children: [] }]}
+        loadChildren={loader}
+      />
+    </StrictMode>,
+  );
+  await waitFor(() => expect(loader).toHaveBeenCalledTimes(1));
+  unmount();
+  expect(signal.aborted).toBe(true);
+  await act(async () => response.resolve([]));
+});
+
+test('lazy response is virtualized when loading a large folder', async () => {
+  const loader = vi.fn<LoadChildren>(async () =>
+    Array.from({ length: 1000 }, (_, index) => ({ id: `loaded-${index}`, kind: 'file' as const, children: [] })),
+  );
+  render(
+    <SortableTree
+      mode='explorer'
+      loadChildren={loader}
+      defaultItems={[{ id: 'remote', childrenLoaded: false, collapsed: true, children: [] }]}
+    />,
+  );
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: 'Expand remote' }));
+  await waitFor(() => expect(screen.queryByRole('treeitem', { name: 'loaded-0' })).not.toBeNull());
+  expect(screen.getAllByRole('treeitem').length).toBeLessThan(40);
+  await user.click(screen.getByRole('button', { name: 'Collapse remote' }));
+  expect(screen.getAllByRole('treeitem')).toHaveLength(1);
+});
+
+test('dragging into an unloaded folder expands it, fetches children and preserves the moved file', async () => {
+  const response = deferredChildren();
+  const loader = vi.fn<LoadChildren>(() => response.promise);
+  render(
+    <SortableTree
+      mode='explorer'
+      loadChildren={loader}
+      defaultItems={[
+        { id: 'file', kind: 'file', children: [] },
+        { id: 'remote', kind: 'folder', collapsed: true, childrenLoaded: false, children: [] },
+      ]}
+    />,
+  );
+  const user = userEvent.setup();
+  screen.getByRole('button', { name: 'Drag file' }).focus();
+  await user.keyboard('[Space][ArrowDown]');
+  await waitFor(() => expect(screen.queryByText('file will move into remote.')).not.toBeNull());
+  await user.keyboard('[Space]');
+  await waitFor(() => expect(loader).toHaveBeenCalledTimes(1));
+  await act(async () => response.resolve([{ id: 'fetched', kind: 'file', children: [] }]));
+  expect(screen.getByRole('treeitem', { name: 'file' }).getAttribute('aria-level')).toBe('2');
+  expect(screen.getByRole('treeitem', { name: 'fetched' }).getAttribute('aria-level')).toBe('2');
+});
+
+test('hidden lazy descendants wait until their ancestor is expanded, including in hierarchy mode', async () => {
+  const loader = vi.fn<LoadChildren>(async () => []);
+  render(
+    <SortableTree
+      collapsible
+      loadChildren={loader}
+      defaultItems={[
+        { id: 'parent', collapsed: true, children: [{ id: 'remote', childrenLoaded: false, children: [] }] },
+      ]}
+    />,
+  );
+  expect(loader).not.toHaveBeenCalled();
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: 'Expand parent' }));
+  await waitFor(() => expect(loader).toHaveBeenCalledTimes(1));
+  expect(screen.getByRole('button', { name: 'Collapse remote' })).not.toBeNull();
+});
+
+test('turning off the loader aborts pending requests and removes loading feedback', async () => {
+  const response = deferredChildren();
+  let signal!: AbortSignal;
+  const loader = vi.fn<LoadChildren>((_item, options) => {
+    signal = options.signal;
+    return response.promise;
+  });
+  const items: TreeItem[] = [{ id: 'remote', childrenLoaded: false, children: [] }];
+  const { rerender } = render(<SortableTree mode='explorer' items={items} loadChildren={loader} />);
+  await waitFor(() => expect(loader).toHaveBeenCalledTimes(1));
+  rerender(<SortableTree mode='explorer' items={items} />);
+  await waitFor(() => expect(signal.aborted).toBe(true));
+  expect(screen.getByRole('treeitem', { name: 'remote' }).getAttribute('aria-busy')).toBeNull();
+  await act(async () => response.resolve([{ id: 'late', children: [] }]));
+  expect(screen.queryByRole('treeitem', { name: 'late' })).toBeNull();
 });

@@ -19,8 +19,9 @@ import {
   getAnnouncement,
 } from './utilities';
 import { getTreeProjection, moveTreeNode } from './tree-moves';
+import { useLazyChildren } from './use-lazy-children';
 import { TreeRootDropZone } from './tree-root-drop-zone';
-import type { FlattenedItem, SensorContext, TreeItem, TreeMode } from './types';
+import type { FlattenedItem, SensorContext, LoadChildren, TreeItem, TreeMode } from './types';
 import { createTreeKeyboardSensor } from './keyboard-coordinates';
 import { SortableTreeItem, SortableTreeItemProps, TreeItem as TreeItemRow } from './components';
 
@@ -32,6 +33,8 @@ export interface SortableTreeProps<T extends object> {
   selectedId?: UniqueIdentifier | null;
   onSelect?: (item: TreeItem<T>) => void;
   onOpen?: (item: TreeItem<T>) => void;
+  /** Fetch children of nodes marked childrenLoaded: false when expanded. */
+  loadChildren?: LoadChildren<T>;
   collapsible?: boolean;
   defaultItems?: TreeItem<T>[];
   items?: TreeItem<T>[];
@@ -55,6 +58,7 @@ export const SortableTree = <T extends object = {}>({
   selectedId: controlledSelectedId,
   onSelect,
   onOpen,
+  loadChildren,
   collapsible,
   defaultItems = [],
   items: controlledItems,
@@ -91,7 +95,9 @@ export const SortableTree = <T extends object = {}>({
   const typeahead = useRef({ text: '', time: 0 });
   const canHaveChildren = useCallback(
     (item: FlattenedItem<T>) =>
-      !explorer || item.kind === 'folder' || (item.kind !== 'file' && item.children.length > 0),
+      !explorer ||
+      item.kind === 'folder' ||
+      (item.kind !== 'file' && (item.children.length > 0 || item.childrenLoaded !== undefined)),
     [explorer],
   );
   const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null);
@@ -106,6 +112,8 @@ export const SortableTree = <T extends object = {}>({
 
     return removeChildrenOf(flattenedTree, activeId !== null ? [activeId, ...collapsedItems] : collapsedItems);
   }, [activeId, items]);
+
+  const { loadStates, requestLoad } = useLazyChildren(items, flattenedItems, loadChildren, updateItems);
 
   const activeIndex = flattenedItems.findIndex((item) => item.id === activeId);
   const focusedIndex = Math.max(
@@ -158,7 +166,7 @@ export const SortableTree = <T extends object = {}>({
       row.scrollIntoView?.({ block: 'nearest' });
       focusPending.current = false;
     }
-  }, [focusedIndex, focusedId, activeId]);
+  }, [focusedIndex, focusedId, activeId, loadStates]);
   // Explicit hierarchy metadata is required when virtualized siblings are absent from the DOM.
   const siblingCounts = useMemo(() => {
     const counts = new Map<UniqueIdentifier | null, number>();
@@ -455,6 +463,20 @@ export const SortableTree = <T extends object = {}>({
         folder={canHaveChildren(item)}
         dropDestination={explorer && activeId !== null && id === projected?.parentId}
         dragInstructions={dragInstructions}
+        loading={loadStates.get(id) === 'loading'}
+        loadError={loadStates.get(id) === 'error'}
+        onRetryLoad={() => {
+          if (explorer) {
+            focusPending.current = true;
+            setFocusedId(id);
+          } else {
+            containerRef.current
+              ?.querySelector<HTMLButtonElement>(`[data-index="${index}"] [data-tree-handle]`)
+              ?.focus();
+          }
+          requestLoad(id, true);
+        }}
+        aria-busy={loadStates.get(id) === 'loading' || undefined}
         selected={explorer && id === (controlledSelectedId === undefined ? selectedId : controlledSelectedId)}
         data-index={index}
         wrapperRef={virtualEnabled ? virtualizer.measureElement : undefined}
@@ -500,7 +522,7 @@ export const SortableTree = <T extends object = {}>({
         dropDepth={projected?.depth}
         collapsed={Boolean(collapsed)}
         onCollapse={
-          (explorer ? canHaveChildren(item) : collapsible && children.length)
+          (explorer ? canHaveChildren(item) : collapsible && (children.length || item.childrenLoaded !== undefined))
             ? () => {
                 setFocusedId(id);
                 handleCollapse(id);

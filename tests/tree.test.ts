@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
+import { loadTreeChildren } from '../lib/load-tree-children';
 import { getTreeProjection, moveTreeNode } from '../lib/tree-moves';
 import type { TreeItem } from '../lib/types';
 import {
@@ -190,4 +191,28 @@ test('Folder moves reject sibling reorder, self and descendant targets and appen
   assert.equal(result?.after.index, 1);
   assert.deepEqual(items, original);
   assert.equal(getTreeProjection(flattenTree(items), 0, 'missing', 0, 24, 'explorer', 'root-zone', folders), null);
+});
+
+test('loaded children preserve local edits and reject IDs already present elsewhere in the tree', () => {
+  const items: TreeItem[] = [
+    { id: 'remote', childrenLoaded: false, children: [{ id: 'local', label: 'Edited', children: [] }] },
+    { id: 'other', children: [] },
+  ];
+  const result = loadTreeChildren(items, 'remote', [
+    { id: 'local', label: 'Old', children: [] },
+    { id: 'new', children: [] },
+  ]);
+  assert.equal(result[0].childrenLoaded, true);
+  assert.equal(result[0].children[0].label, 'Edited');
+  assert.equal(items[0].childrenLoaded, false);
+  assert.throws(() => loadTreeChildren(items, 'remote', [{ id: 'other', children: [] }]), /unique/);
+  assert.throws(
+    () =>
+      loadTreeChildren(items, 'remote', [
+        { id: 'dup', children: [] },
+        { id: 'dup', children: [] },
+      ]),
+    /unique/,
+  );
+  assert.equal(loadTreeChildren(result, 'remote', []), result);
 });

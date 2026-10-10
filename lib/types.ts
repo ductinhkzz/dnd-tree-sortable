@@ -9,6 +9,8 @@ export type BaseTreeItem = {
   collapsed?: boolean;
   kind?: 'file' | 'folder';
   label?: string;
+  /** false marks children that should be fetched on expansion; true caches a completed load. */
+  childrenLoaded?: boolean;
 };
 
 export type TreeItem<T extends object = {}> = T & {
@@ -16,8 +18,15 @@ export type TreeItem<T extends object = {}> = T & {
   collapsed?: boolean;
   kind?: 'file' | 'folder';
   label?: string;
+  /** false marks children that should be fetched on expansion; true caches a completed load. */
+  childrenLoaded?: boolean;
   children: TreeItem<T>[];
 };
+
+export type LoadChildren<T extends object = {}> = (
+  item: TreeItem<T>,
+  options: { signal: AbortSignal },
+) => Promise<TreeItem<T>[]>;
 
 export type TreeItems = TreeItem[];
 

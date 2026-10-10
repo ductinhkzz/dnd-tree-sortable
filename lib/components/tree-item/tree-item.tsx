@@ -8,6 +8,8 @@ import {
   FolderIcon,
   FolderOpenIcon,
   PaletteIcon,
+  LoaderCircleIcon,
+  RefreshCwIcon,
 } from 'lucide-react';
 import { Action, type ActionProps } from '../action';
 import type { RenderComponentType, TreeItem as TreeItemType } from '../../types';
@@ -23,6 +25,9 @@ export interface TreeItemProps<T extends TreeItemType> extends Omit<HTMLAttribut
   selected?: boolean;
   dropDestination?: boolean;
   dragInstructions?: string;
+  loading?: boolean;
+  loadError?: boolean;
+  onRetryLoad?(): void;
   folder?: boolean;
   wrapperStyle?: HTMLAttributes<HTMLLIElement>['style'];
   clone?: boolean;
@@ -50,6 +55,9 @@ const TreeItemComponent = <T extends TreeItemType>(props: TreeItemProps<T>, ref:
     selected,
     dropDestination,
     dragInstructions,
+    loading,
+    loadError,
+    onRetryLoad,
     folder,
     wrapperStyle,
     clone,
@@ -162,6 +170,25 @@ const TreeItemComponent = <T extends TreeItemType>(props: TreeItemProps<T>, ref:
         )}
         {explorer && <Icon aria-hidden='true' className={cn('size-4 shrink-0', iconColor)} />}
         <ItemContent {...value} />
+        {loading && (
+          <output className='flex shrink-0 items-center gap-1 px-1 text-xs text-muted-foreground'>
+            <LoaderCircleIcon aria-hidden='true' className='size-4 animate-spin motion-reduce:animate-none' />
+            <span className='sr-only'>Loading children of {label}</span>
+          </output>
+        )}
+        {loadError && (
+          <span className='flex shrink-0 items-center gap-1 text-xs text-destructive'>
+            <output>Couldn't load</output>
+            <Action
+              aria-label={`Retry loading ${label}`}
+              title='Retry loading children'
+              onClick={onRetryLoad}
+              disabled={disableInteraction}
+            >
+              <RefreshCwIcon aria-hidden='true' className='size-4' />
+            </Action>
+          </span>
+        )}
         {!clone && onRemove && (
           <Remove
             tabIndex={explorer ? -1 : undefined}

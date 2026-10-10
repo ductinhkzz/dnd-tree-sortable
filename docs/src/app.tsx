@@ -1,6 +1,6 @@
 import { Button, buttonVariants } from '@/components/ui/button';
 import { useEffect, useState } from 'react';
-import { SortableTree, type TreeItem } from 'dnd-tree-sortable';
+import { SortableTree, type TreeItem, type LoadChildren } from 'dnd-tree-sortable';
 
 const initialItems: TreeItem[] = [
   {
@@ -91,6 +91,50 @@ const largeItems: TreeItem[] = [
   },
   { id: 'Archive', kind: 'folder', collapsed: true, children: [] },
 ];
+const lazyItems: TreeItem[] = [
+  { id: 'src', kind: 'folder', childrenLoaded: false, collapsed: true, children: [] },
+  { id: 'public', kind: 'folder', childrenLoaded: false, collapsed: true, children: [] },
+  {
+    id: 'Documents',
+    label: 'Documents (1,000 files)',
+    kind: 'folder',
+    childrenLoaded: false,
+    collapsed: true,
+    children: [],
+  },
+  { id: 'retry', label: 'Retry example', kind: 'folder', childrenLoaded: false, collapsed: true, children: [] },
+];
+const lazyAttempts = new Map<string | number, number>();
+const demoLoadChildren: LoadChildren = async (item, { signal }) => {
+  await new Promise<void>((resolve, reject) => {
+    const abort = () => {
+      clearTimeout(timer);
+      reject(new DOMException('Aborted', 'AbortError'));
+    };
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', abort);
+      resolve();
+    }, 1000);
+    if (signal.aborted) abort();
+    else signal.addEventListener('abort', abort, { once: true });
+  });
+  const attempts = (lazyAttempts.get(item.id) ?? 0) + 1;
+  lazyAttempts.set(item.id, attempts);
+  if (item.id === 'retry' && attempts === 1) throw new Error('Demo connection interrupted');
+  if (item.id === 'Documents') return largeItems[0].children;
+  if (item.id === 'src')
+    return [
+      { id: 'app', kind: 'folder', childrenLoaded: false, collapsed: true, children: [] },
+      { id: 'components', kind: 'folder', childrenLoaded: false, collapsed: true, children: [] },
+      { id: 'globals', label: 'globals.css', kind: 'file', children: [] },
+    ];
+  if (item.id === 'app')
+    return ['page.tsx', 'layout.tsx', 'loading.tsx'].map((label) => ({ id: label, label, kind: 'file', children: [] }));
+  if (item.id === 'components')
+    return ['button.tsx', 'card.tsx', 'dialog.tsx'].map((label) => ({ id: label, label, kind: 'file', children: [] }));
+  if (item.id === 'retry') return [{ id: 'recovered', label: 'Loaded successfully.tsx', kind: 'file', children: [] }];
+  return [];
+};
 const examples = [
   { value: 'reorder', label: 'Reorder', description: 'Change sibling order. Items keep their parent.' },
   {
@@ -104,6 +148,11 @@ const examples = [
     description: 'Move into a folder or Workspace root. Existing siblings keep their order.',
   },
   { value: 'large', label: '1,000 files', description: 'The same folder behavior with a virtualized list.' },
+  {
+    value: 'lazy',
+    label: 'Dynamic loading',
+    description: 'Expand to fetch children. Results are cached; try the error example to retry.',
+  },
 ] as const;
 
 const registryUrl = new URL(`${import.meta.env.BASE_URL}r/sortable-tree.json`, window.location.origin).href;
@@ -111,7 +160,7 @@ const command = `pnpm dlx shadcn@latest add ${registryUrl}`;
 const usage = `"use client";
 
 import { useState } from "react";
-import { SortableTree, type TreeItem } from "@/components/dnd-tree-sortable";
+import { SortableTree, type TreeItem, type LoadChildren } from "@/components/dnd-tree-sortable";
 
 export function TreeDemo() {
   const [items, setItems] = useState<TreeItem[]>([
@@ -136,7 +185,7 @@ export function TreeDemo() {
 
 const explorerUsage = `"use client";
 
-import { SortableTree, type TreeItem } from "@/components/dnd-tree-sortable";
+import { SortableTree, type TreeItem, type LoadChildren } from "@/components/dnd-tree-sortable";
 
 const items: TreeItem[] = [
   { id: "src", kind: "folder", children: [
@@ -153,6 +202,26 @@ export function ExplorerDemo() {
       virtualize={{ threshold: 200, overscan: 8 }}
       onOpen={(file) => console.log("Open", file.id)}
       height={400}
+    />
+  );
+}`;
+
+const lazyUsage = `"use client";
+
+import { SortableTree, type LoadChildren } from "@/components/dnd-tree-sortable";
+
+const loadChildren: LoadChildren = async (folder, { signal }) => {
+  const response = await fetch(\`/api/tree/\${encodeURIComponent(String(folder.id))}\`, { signal });
+  if (!response.ok) throw new Error("Could not load children");
+  return response.json(); // TreeItem[]; nested lazy folders also set childrenLoaded: false
+};
+
+export function DynamicTree() {
+  return (
+    <SortableTree
+      mode="explorer"
+      defaultItems={[{ id: "src", kind: "folder", childrenLoaded: false, collapsed: true, children: [] }]}
+      loadChildren={loadChildren}
     />
   );
 }`;
@@ -178,8 +247,11 @@ function CopyButton({ value }: { value: string }) {
 export function App() {
   const [items, setItems] = useState(reorderItems);
   const [example, setExample] = useState<(typeof examples)[number]['value']>('reorder');
+  const [exampleRevision, setExampleRevision] = useState(0);
   const [openedFile, setOpenedFile] = useState<string | null>(null);
   function loadExample(next: typeof example) {
+    setExampleRevision((revision) => revision + 1);
+    lazyAttempts.clear();
     setExample(next);
     setOpenedFile(null);
     setItems(
@@ -190,17 +262,22 @@ export function App() {
             ? initialItems
             : next === 'explorer'
               ? explorerItems
-              : largeItems,
+              : next === 'lazy'
+                ? lazyItems
+                : largeItems,
       ),
     );
   }
-  const folderExample = example === 'explorer' || example === 'large';
-  const exampleCode = folderExample
-    ? explorerUsage
-    : usage.replace(
-        '      items={items}',
-        `      mode="${example === 'reorder' ? 'reorder' : 'tree'}"\n      items={items}`,
-      );
+  const folderExample = example === 'explorer' || example === 'large' || example === 'lazy';
+  const exampleCode =
+    example === 'lazy'
+      ? lazyUsage
+      : folderExample
+        ? explorerUsage
+        : usage.replace(
+            '      items={items}',
+            `      mode="${example === 'reorder' ? 'reorder' : 'tree'}"\n      items={items}`,
+          );
   const [tab, setTab] = useState<'preview' | 'code'>('preview');
   const [removable, setRemovable] = useState(false);
   const [indicator, setIndicator] = useState(true);
@@ -340,7 +417,8 @@ export function App() {
                       <span>↳</span>
                     </div>
                     <SortableTree
-                      key={example}
+                      key={`${example}-${exampleRevision}`}
+                      loadChildren={example === 'lazy' ? demoLoadChildren : undefined}
                       mode={folderExample ? 'explorer' : example === 'reorder' ? 'reorder' : 'tree'}
                       onOpen={(item) => setOpenedFile(`Opened ${item.label ?? item.id}`)}
                       items={items}
